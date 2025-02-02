@@ -12,7 +12,7 @@ const Navbar = () => {
         <div className="flex justify-between h-24 items-center">
           {/* Logo */}
           <Link to="/" className="text-xl font-bold text-gray-900">
-            <img src={Logo} className="h-24 w-28" alt="" />
+            <img src={Logo} className="h-24 w-43" alt="" />
           </Link>
 
           {/* Menu button (mobile) */}
@@ -27,17 +27,20 @@ const Navbar = () => {
 
           {/* Navigation as */}
           <div className="hidden md:flex text-xl space-x-6">
-            <Link to="/" className="text-gray-700 hover:text-blue-500">
+            <Link to="/" className="text-gray-700 py-2 hover:text-blue-500">
               Home
             </Link>
-            <Link to="/about" className="text-gray-700 hover:text-blue-500">
+            <Link to="/about" className="text-gray-700 py-2 hover:text-blue-500">
               About
             </Link>
-            <Link to="/services" className="text-gray-700 hover:text-blue-500">
+            <Link to="/services" className="text-gray-700 py-2 hover:text-blue-500">
               Services
             </Link>
-            <Link to="/contact" className="text-gray-700 hover:text-blue-500">
+            <Link to="/contact" className="text-gray-700 py-2 hover:text-blue-500">
               Contact
+            </Link>
+            <Link to="/login" className="bg-black py-2 px-5 rounded-md text-gray-200 hover:text-blue-500">
+              Login
             </Link>
           </div>
         </div>
@@ -46,16 +49,16 @@ const Navbar = () => {
       {/* Mobile menu */}
       {isOpen && (
         <div className="md:hidden bg-white border-t p-4 space-y-2">
-          <Link to="/" className="block text-gray-700 hover:text-blue-500" onClick={() => setIsOpen(false)}>
+          <Link to="/" className="block text-gray-700 py-2 hover:text-blue-500" onClick={() => setIsOpen(false)}>
             Home
           </Link>
-          <Link to="/about" className="block text-gray-700 hover:text-blue-500" onClick={() => setIsOpen(false)}>
+          <Link to="/about" className="block text-gray-700 py-2 hover:text-blue-500" onClick={() => setIsOpen(false)}>
             About
           </Link>
-          <Link to="/services" className="block text-gray-700 hover:text-blue-500" onClick={() => setIsOpen(false)}>
+          <Link to="/services" className="block text-gray-700 py-2 hover:text-blue-500" onClick={() => setIsOpen(false)}>
             Services
           </Link>
-          <Link to="/contact" className="block text-gray-700 hover:text-blue-500" onClick={() => setIsOpen(false)}>
+          <Link to="/contact" className="block text-gray-700 py-2 hover:text-blue-500" onClick={() => setIsOpen(false)}>
             Contact
           </Link>
         </div>
