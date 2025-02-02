@@ -4,7 +4,7 @@ devUrl="http://localhost:4000/api"
 prodUrl="https://smart-ocr-document-extraction-1e8k.vercel.app/api"
 // Create an instance of Axios with the base URL
 export const api = axios.create({
-  baseURL: devUrl,  // Replace with your backend API URL
+  baseURL: prodUrl,  // Replace with your backend API URL
   headers: {
     "Content-Type": "application/json",
   },
