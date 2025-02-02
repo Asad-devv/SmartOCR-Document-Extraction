@@ -2,12 +2,14 @@ require('dotenv').config();  // Load .env variables
 
 const express = require('express');
 const mongoose = require('mongoose');
-const authRoutes = require('./routes/auth.js');  // Path to your authRoutes
+const authRoutes = require('../routes/auth.js');  // Path to your authRoutes
+const cors = require('cors');  // Import CORS
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(express.json());  // To parse JSON bodies
+app.use(cors());  // Allow all origins
 
 app.use('/api/auth', authRoutes);
 
