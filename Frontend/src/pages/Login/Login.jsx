@@ -44,7 +44,7 @@ const SignIn = () => {
       toast.error(error.response?.data?.message || "Login failed");
       console.error("Error during login:", error);
     } finally {
-    //   setLoading(false); // Set loading to false once the request is complete
+      setLoading(false); // Set loading to false once the request is complete
     }
   };
 

@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as Yup from "yup";
 import { toast } from "react-hot-toast";
 import Logo from "../../assets/logo.png";
 import axios from "axios";
-
+import Loader from "../../Components/Loading";
+import { api } from "../../api/api";
 // Validation schema using Yup
 const validationSchema = Yup.object({
   fullName: Yup.string().required("Full Name is required"),
@@ -28,10 +29,11 @@ const SignUp = () => {
   } = useForm({
     resolver: yupResolver(validationSchema),
   });
-
+const [loading, setLoading] = useState(false)
   const onSubmit = async (data) => {
+    setLoading(true)
     try {
-      const response = await axios.post('http://localhost:4000/api/auth/signup', data);
+      const response = await api.post('/auth/signup', data);
       toast.success(response.data.message);
       console.log("User registered:", response.data);
 
@@ -42,11 +44,16 @@ const SignUp = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || "Registration failed");
       console.error("Error during registration:", error);
+    }finally{
+      setLoading(false)
     }
   };
 
   return (
+    <>  
+    {loading && <Loader loading={loading}/>}
     <div className="flex min-h-full items-center justify-center bg-gray-100 p-6">
+      
       <div className="w-full max-w-2xl mt-20 bg-white p-12 rounded-lg shadow-lg">
         <div className="text-center">
           <img className="mx-auto h-44 w-auto" src={Logo} alt="Your Company" />
@@ -107,6 +114,7 @@ const SignUp = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
