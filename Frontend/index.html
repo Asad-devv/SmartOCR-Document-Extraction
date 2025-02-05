@@ -1,13 +1,47 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./src/assets/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Documoon OCR Platform</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="./src/assets/logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documoon OCR Platform</title>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+
+  <script>
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement(
+        {
+          pageLanguage: 'en',
+          includedLanguages: 'en,es', // Specify language codes here
+        },
+        'google_translate_element'
+      );
+    }
+
+    // Function to check the current language
+    function checkLanguage() {
+      const lang = document.documentElement.lang; // Get current language
+      if (lang === 'ur' || lang === 'ps' || lang === 'sd' || lang === 'pa-arab') {
+        document.body.classList.add('urdu'); // Apply Urdu font
+      } else {
+        document.body.classList.remove('urdu'); // Remove Urdu font
+      }
+    }
+
+    // Initialize language check on page load
+    window.onload = function () {
+      checkLanguage();
+      // Observe for language changes by Google Translate
+      const observer = new MutationObserver(checkLanguage);
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+    };
+  </script>
+  <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</body>
+
 </html>
