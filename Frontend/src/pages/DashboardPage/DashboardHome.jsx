@@ -16,22 +16,20 @@ const DashboardHome = () => {
     return (
         <section className="pt-[7%] mb-6 px-0 h-auto flex flex-row items-start">
             <aside
-                className={`leftPatientProfile flex flex-col gap-2  transition-all duration-700`}
+                className={`leftDashboard flex flex-col gap-2 transition-all duration-700`}
                 style={{ width: isOpen ? '17%' : '0' }} // Use inline style for smooth transition
             >
                 <Sidebar isOpen={isOpen} setIsOpen={setIsOpen} /> {/* Pass props */}
             </aside>
             <aside
-                className={`rightPatientProfile bg-[#f8f8fa] transition-all duration-700 px-[2%]`}
-                style={{ width: isOpen ? '83%' : '100%' }} // Use inline style for smooth transition
+                className={`rightDashboard bg-[#f8f8fa] transition-all duration-700 px-[2%]`}
+                style={{ width: isOpen ? '83%' : '99%' }} // Use inline style for smooth transition
             >
                 <Routes>
                     <Route index element={<Overview />} />
                     <Route path="template" element={<MyTemplates />} />
                     <Route path="/uploadfile" element={<Loadtemplate />} />
                     <Route path="/results" element={<Trigger />} />
-
-
                 </Routes>
             </aside>
         </section>
