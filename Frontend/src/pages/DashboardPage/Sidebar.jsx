@@ -1,4 +1,4 @@
-import { FaCalendarAlt, FaClipboard,   FaUserMd, FaBookMedical, FaArrowRight, FaArrowLeft } from 'react-icons/fa';
+import { FaCalendarAlt, FaClipboard, FaUserMd, FaBookMedical, FaArrowRight, FaArrowLeft } from 'react-icons/fa';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -30,7 +30,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => { // Accept props
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)} // Toggle function
-                className="fixed z-20 top-[9%] left-[-0.5%] p-3 rounded-lg bg-themeBlue text-white shadow-lg hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center"
+                className="fixed z-20 top-[17%] left-[-0.5%] p-3 rounded-lg bg-themeBlue text-white shadow-lg hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center"
                 aria-label="Toggle Menu"
             >
                 {!isOpen ? <FaArrowRight size={10} />
@@ -42,12 +42,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => { // Accept props
                 initial="closed"
                 animate={isOpen ? "open" : "closed"}
                 variants={menuVariants}
-                className="fixed lg:top-[15%] top-[14%] left-0 h-full bg-white shadow-lg z-10 w-64"
+                className="fixed lg:top-[22%] top-[14%] left-0 h-full bg-white shadow-lg z-10 w-64"
             >
-                <div className="p-4 pt-2"> {/* Added top padding to avoid overlap with button */}
+                <div className="p-4 lg:pt-2 pt-[25%]"> {/* Added top padding to avoid overlap with button */}
 
 
-                    <p className="text-[#5c5c66] font-bold mb-5 mt-1">Menu</p>
+       
 
 
 
@@ -84,11 +84,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => { // Accept props
                             <FaBookMedical />
                             <span>Trigger</span>
                         </Link>
-                       
+
                     </div>
 
-                    
-     
+
+
                 </div>
             </motion.div>
         </div>
