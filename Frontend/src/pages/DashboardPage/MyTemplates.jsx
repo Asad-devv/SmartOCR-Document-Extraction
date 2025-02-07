@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { LuUpload, LuEye, LuPlus } from 'react-icons/lu';
+// import { LuUpload, LuEye, LuPlus } from 'react-icons/lu';
 
 const MyTemplates = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -90,7 +90,7 @@ const MyTemplates = () => {
                         onClick={() => setIsModalOpen(true)}
                         className="group flex items-center gap-2 bg-gradient-to-r from-themeBlue to-blue-600 text-white border border-themeBlue rounded-lg px-4 py-2 hover:shadow-lg hover:scale-105 transition-all duration-200 w-full md:w-auto"
                     >
-                        <LuPlus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+                        {/* <LuPlus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" /> */}
                         Add template
                     </button>
                 </motion.div>
@@ -139,7 +139,7 @@ const MyTemplates = () => {
                                         whileTap={{ scale: 0.95 }}
                                         className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg px-4 py-2 text-sm hover:shadow-lg transition-all duration-200"
                                     >
-                                        <LuUpload className="w-4 h-4" />
+                                        {/* <button className="w-4 h-4" /> */}
                                         Upload file
                                     </motion.button>
                                 </td>
@@ -149,7 +149,7 @@ const MyTemplates = () => {
                                         whileTap={{ scale: 0.95 }}
                                         className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg px-4 py-2 text-sm hover:shadow-lg transition-all duration-200"
                                     >
-                                        <LuEye className="w-4 h-4" />
+                                        {/* <LuEye className="w-4 h-4" /> */}
                                         View results
                                     </motion.button>
                                 </td>

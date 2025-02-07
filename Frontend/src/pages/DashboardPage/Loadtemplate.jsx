@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { LuFileUp, LuFile, LuLoader2 } from 'react-icons/lu';
+import { LuLoader } from 'react-icons/lu';
 import { motion } from 'framer-motion';
 import Analysis from './Analysis';
+import { LucideFileUp } from 'lucide-react';
+
 
 const Loadtemplate = () => {
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -100,7 +102,7 @@ const Loadtemplate = () => {
               onDrop={handleDrop}
             >
               <div className="text-center">
-                <LuFileUp className="mx-auto h-12 w-12 text-themeBlue mb-4" />
+                className="mx-auto h-12 w-12 text-themeBlue mb-4" />
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">
                   Upload your file
                 </h3>
@@ -127,7 +129,7 @@ const Loadtemplate = () => {
                       }}
                     />
                     <span className="inline-flex items-center gap-2 px-6 py-3 bg-themeBlue text-white rounded-xl hover:bg-opacity-90 transition-all duration-300 shadow-md hover:shadow-lg">
-                      <LuFile className="h-5 w-5" />
+                      <LucideFileUp className="h-5 w-5" />
                       Choose File
                     </span>
                   </motion.label>
@@ -168,7 +170,7 @@ const Loadtemplate = () => {
                     <span>{uploadProgress}%</span>
                   </div>
                   <div className="flex justify-center mt-4">
-                    <LuLoader2 className="w-6 h-6 text-themeBlue animate-spin" />
+                    <LuLoader className="w-6 h-6 text-themeBlue animate-spin" />
                   </div>
                 </div>
               </motion.div>
