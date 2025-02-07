@@ -7,6 +7,8 @@ import Logo from "../../assets/logo.png";
 import axios from "axios";
 import Loader from "../../Components/Loading";
 import { api } from "../../api/api";
+import { useNavigate } from 'react-router-dom';
+
 // Validation schema using Yup
 const validationSchema = Yup.object({
   fullName: Yup.string().required("Full Name is required"),
@@ -22,6 +24,8 @@ const validationSchema = Yup.object({
 
 const SignUp = () => {
   // Setup React Hook Form
+  const navigate = useNavigate();
+
   const {
     register,
     handleSubmit,
@@ -40,7 +44,7 @@ const [loading, setLoading] = useState(false)
       // Optionally, you can store the token in localStorage or cookies for authentication
       localStorage.setItem("token", response.data.token);
       // Redirect to login or home page
-      window.location.href = '/login';
+      navigate('/dashboard');
     } catch (error) {
       toast.error(error.response?.data?.message || "Registration failed");
       console.error("Error during registration:", error);

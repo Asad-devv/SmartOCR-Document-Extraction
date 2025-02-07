@@ -7,6 +7,8 @@ import { Link } from "react-router-dom";
 import Logo from "../../assets/logo.png";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/api.js";
+import { useNavigate } from 'react-router-dom';
+
 
 // Validation schema using Yup
 const validationSchema = Yup.object({
@@ -16,6 +18,7 @@ const validationSchema = Yup.object({
 
 const SignIn = () => {
   const [loading, setLoading] = useState(false);  // Track loading state
+  useState(false);  // Track loading state
 
   // Setup React Hook Form with Yup resolver
   const {
@@ -39,7 +42,7 @@ const SignIn = () => {
       localStorage.setItem("token", response.data.token);
 
       // Redirect to the homepage or dashboard
-      window.location.href = "/dashboard";
+      navigate('/dashboard');
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
       console.error("Error during login:", error);
