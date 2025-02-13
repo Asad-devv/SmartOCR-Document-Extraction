@@ -14,10 +14,11 @@ const Navbar = () => {
   return (
     <nav className="bg-white shadow-md absolute w-full z-10">
       <div className="px-[2%] mx-auto ">
-        <div className="flex justify-between h-24 items-center">
+        <div className="flex justify-between h-16 items-center">
           {/* Logo */}
-          <Link to="/" className="text-xl font-bold text-gray-900">
-            <img src={Logo} className="h-24 w-43" alt="" />
+          <Link to="/" className=" flex items-center justify-center text-xl font-black text-gray-900">
+            <img src={Logo} className="h-14 w-14" alt="" />
+            <h1 className="text-2xl pl-1 uppercase ">Documoon</h1>
           </Link>
 
           {/* Menu button (mobile) */}
@@ -31,7 +32,7 @@ const Navbar = () => {
           </div>
 
           {/* Navigation as */}
-          <div className="hidden md:flex text-xl space-x-6">
+          <div className="hidden md:flex text-md space-x-6">
             <Link to="/" className="text-gray-700 py-2 hover:text-blue-500">
               Home
             </Link>

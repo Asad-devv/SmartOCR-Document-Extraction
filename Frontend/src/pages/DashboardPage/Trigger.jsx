@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, X } from 'lucide-react';
+import { Worker, Viewer } from '@react-pdf-viewer/core';
+import '@react-pdf-viewer/core/lib/styles/index.css';
 
 const Trigger = () => {
     const [dragActive, setDragActive] = useState(false);
     const [files, setFiles] = useState([]);
+    const [pdfFile, setPdfFile] = useState(null); // State to store the PDF file
 
     const handleDrag = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (e.type === "dragenter" || e.type === "dragover") {
+        if (e.type === 'dragenter' || e.type === 'dragover') {
             setDragActive(true);
-        } else if (e.type === "dragleave") {
+        } else if (e.type === 'dragleave') {
             setDragActive(false);
         }
     };
@@ -22,11 +25,19 @@ const Trigger = () => {
         setDragActive(false);
         const droppedFiles = [...e.dataTransfer.files];
         setFiles(droppedFiles);
+        const pdfFile = droppedFiles.find(file => file.type === 'application/pdf');
+        if (pdfFile) {
+            setPdfFile(URL.createObjectURL(pdfFile)); // Set PDF URL for viewing
+        }
     };
 
     const handleFileChange = (e) => {
         const selectedFiles = [...e.target.files];
         setFiles(selectedFiles);
+        const pdfFile = selectedFiles.find(file => file.type === 'application/pdf');
+        if (pdfFile) {
+            setPdfFile(URL.createObjectURL(pdfFile)); // Set PDF URL for viewing
+        }
     };
 
     const removeFile = (index) => {
@@ -134,6 +145,15 @@ const Trigger = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Display the PDF if it's uploaded */}
+            {pdfFile && (
+                <div className="mt-6 p-4 border border-gray-300 rounded-lg">
+                    <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js`}>
+                        <Viewer fileUrl={pdfFile} />
+                    </Worker>
+                </div>
+            )}
         </div>
     );
 };

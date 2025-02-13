@@ -67,47 +67,46 @@ const [loading, setLoading] = useState(false)
         </div>
 
         <div className="mt-10">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {[ 
-              { label: "Full Name", id: "fullName", type: "text" },
-              { label: "Email Address", id: "email", type: "email" },
-              { label: "Password", id: "password", type: "password" },
-              { label: "Confirm Password", id: "confirmPassword", type: "password" },
-              { label: "Company (Optional)", id: "company", type: "text" },
-            ].map(({ label, id, type }) => (
-              <div key={id}>
-                <label
-                  htmlFor={id}
-                  className="block text-lg font-medium text-[#2067a5]"
-                >
-                  {label}
-                </label>
-                <div className="mt-2">
-                  <input
-                    type={type}
-                    id={id}
-                    name={id}
-                    {...register(id)}
-                    className={`block w-full rounded-lg bg-white px-4 py-3 text-lg text-gray-900 border border-[#58a9f8] placeholder-[#58a9f8] focus:border-[#2067a5] focus:ring-2 focus:ring-[#2067a5] ${
-                      errors[id] ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors[id] && (
-                    <p className="text-red-500 text-sm mt-2">{errors[id]?.message}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+  {[
+    { label: "First Name", name: "firstName", type: "text" },
+    { label: "Last Name", name: "lastName", type: "text" },
+    { label: "Phone Number", name: "phoneNumber", type: "text" },
+    { label: "Sector", name: "sector", type: "text" },
+    { label: "Industry", name: "industry", type: "text" },
+    { label: "Company Size", name: "companySize", type: "number" },
+    { label: "Company Address", name: "companyAddress", type: "text" },
+    { label: "Email", name: "email", type: "email" },
+    { label: "Password", name: "password", type: "password" },
+  ].map(({ label, name, type }) => (
+    <div key={name}>
+      <label htmlFor={name} className="block text-lg font-medium text-gray-900">
+        {label}
+      </label>
+      <div className="mt-2">
+        <input
+          type={type}
+          id={name}
+          {...register(name)}
+          className={`block w-full rounded-lg bg-white px-4 py-3 text-lg text-gray-900 border 
+            ${errors[name] ? "border-red-500" : "border-gray-300"} 
+            placeholder-gray-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600`}
+        />
+        {errors[name] && (
+          <p className="text-red-500 text-sm mt-2">{errors[name].message}</p>
+        )}
+      </div>
+    </div>
+  ))}
 
-            <div>
-              <button
-                type="submit"
-                className="w-full rounded-lg bg-[#2067a5] px-6 py-3 text-xl font-semibold text-white shadow-md hover:bg-[#58a9f8] focus:outline-none focus:ring-2 focus:ring-[#2067a5]"
-              >
-                Sign Up
-              </button>
-            </div>
-          </form>
+  <button
+    type="submit"
+    className="w-full mt-4 bg-indigo-600 text-white py-3 px-6 rounded-lg text-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+  >
+    Sign In
+  </button>
+</form>
+
 
           <p className="mt-10 text-center text-lg text-gray-500">
             Already have an account?{" "}
