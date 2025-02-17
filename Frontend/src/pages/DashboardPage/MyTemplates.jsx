@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-// import { LuUpload, LuEye, LuPlus } from 'react-icons/lu';
 
 const MyTemplates = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -8,49 +7,21 @@ const MyTemplates = () => {
         templateName: '',
         description: ''
     });
+    const [templates, setTemplates] = useState([]);
 
-    const Alltemplates = [
-        {
-            templateName: "Template 1",
-            description: "Description of the template",
-            rules: "Rule details",
-            filesUploaded: 5,
-            increase: "Increase details",
-            results: "Results details",
-        },
-        {
-            templateName: "Template 1",
-            description: "Description of the template",
-            rules: "Rule details",
-            filesUploaded: 5,
-            increase: "Increase details",
-            results: "Results details",
-        },
-        {
-            templateName: "Template 1",
-            description: "Description of the template",
-            rules: "Rule details",
-            filesUploaded: 5,
-            increase: "Increase details",
-            results: "Results details",
-        },
-        {
-            templateName: "Template 1",
-            description: "Description of the template",
-            rules: "Rule details",
-            filesUploaded: 5,
-            increase: "Increase details",
-            results: "Results details",
-        },
-        {
-            templateName: "Template 1",
-            description: "Description of the template",
-            rules: "Rule details",
-            filesUploaded: 5,
-            increase: "Increase details",
-            results: "Results details",
-        },
-    ];
+    useEffect(() => {
+        const fetchTemplates = async () => {
+            try {
+                const response = await fetch('http://localhost:4000/api/template/get');
+                const data = await response.json();
+                setTemplates(data);
+            } catch (error) {
+                console.error("Error fetching templates:", error);
+            }
+        };
+
+        fetchTemplates();
+    }, []);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -60,11 +31,26 @@ const MyTemplates = () => {
         }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Handle template creation logic here
-        setIsModalOpen(false);
-        setNewTemplate({ templateName: '', description: '' });
+        try {
+            const response = await fetch('http://localhost:4000/api/template/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newTemplate),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                setTemplates([...templates, data]);
+                setIsModalOpen(false);
+                setNewTemplate({ templateName: '', description: '' });
+            } else {
+                console.error("Error saving template:", data);
+            }
+        } catch (error) {
+            console.error("Error saving template:", error);
+        }
     };
 
     return (
@@ -90,7 +76,6 @@ const MyTemplates = () => {
                         onClick={() => setIsModalOpen(true)}
                         className="group flex items-center gap-2 bg-gradient-to-r from-themeBlue to-blue-600 text-white border border-themeBlue rounded-lg px-4 py-2 hover:shadow-lg hover:scale-105 transition-all duration-200 w-full md:w-auto"
                     >
-                        {/* <LuPlus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" /> */}
                         Add template
                     </button>
                 </motion.div>
@@ -115,7 +100,7 @@ const MyTemplates = () => {
                     </thead>
 
                     <tbody className="divide-y divide-gray-200/30">
-                        {Alltemplates.map((template, index) => (
+                        {templates.map((template, index) => (
                             <motion.tr
                                 key={index}
                                 initial={{ opacity: 0, x: -20 }}
@@ -139,7 +124,6 @@ const MyTemplates = () => {
                                         whileTap={{ scale: 0.95 }}
                                         className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg px-4 py-2 text-sm hover:shadow-lg transition-all duration-200"
                                     >
-                                        {/* <button className="w-4 h-4" /> */}
                                         Upload file
                                     </motion.button>
                                 </td>
@@ -149,7 +133,6 @@ const MyTemplates = () => {
                                         whileTap={{ scale: 0.95 }}
                                         className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg px-4 py-2 text-sm hover:shadow-lg transition-all duration-200"
                                     >
-                                        {/* <LuEye className="w-4 h-4" /> */}
                                         View results
                                     </motion.button>
                                 </td>
@@ -159,7 +142,6 @@ const MyTemplates = () => {
                 </table>
             </div>
 
-            {/* Modal with enhanced styling */}
             {isModalOpen && (
                 <motion.div
                     initial={{ opacity: 0 }}

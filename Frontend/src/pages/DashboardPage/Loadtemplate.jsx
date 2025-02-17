@@ -102,7 +102,7 @@ const Loadtemplate = () => {
               onDrop={handleDrop}
             >
               <div className="text-center">
-                className="mx-auto h-12 w-12 text-themeBlue mb-4" />
+              
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">
                   Upload your file
                 </h3>
