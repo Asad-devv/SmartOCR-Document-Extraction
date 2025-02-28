@@ -5,6 +5,9 @@ import { Worker, Viewer } from '@react-pdf-viewer/core';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import { Stage, Layer, Rect, Circle, Line } from 'react-konva';
 import { v4 as uuidv4 } from 'uuid';
+import processImageWithPrompt from '../ModalExtraction/extraction';
+
+
 const Trigger = () => {
     const [dragActive, setDragActive] = useState(false);
     const [files, setFiles] = useState([]);
@@ -25,7 +28,7 @@ const Trigger = () => {
     const [pdfId, setPdfId] = useState(null); 
     const [allShapes, setAllShapes] = useState({});
 
-  
+    // processImageWithPrompt(currentPage,pdfFile)
    
     useEffect(() => {
         const fetchShapes = async () => {
@@ -245,6 +248,8 @@ const Trigger = () => {
             setIsDrawingEnabled(false);
         }
     };
+
+
 
     const handleMouseMove = (e) => {
         if (isDrawing) {
