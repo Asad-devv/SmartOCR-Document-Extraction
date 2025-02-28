@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import processImageWithPrompt from "./prompt"; // Adjust path
 import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 import ImageUploadAndProcess from './prompt';
+
 const Trigger = () => {
     const [dragActive, setDragActive] = useState(false);
     const [files, setFiles] = useState([]);
@@ -80,7 +81,7 @@ const Trigger = () => {
         
     };
     
-   
+
     useEffect(() => {
         const fetchShapes = async () => {
             if (!pdfId) return;
@@ -298,6 +299,8 @@ const Trigger = () => {
             setIsDrawingEnabled(false);
         }
     };
+
+
 
     const handleMouseMove = (e) => {
         if (isDrawing) {
