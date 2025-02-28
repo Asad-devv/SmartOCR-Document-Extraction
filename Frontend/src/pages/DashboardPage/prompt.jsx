@@ -23,7 +23,10 @@ async function processImageWithPrompt(imageFile, prompt) {
 
   try {
     const result = await model.generateContent([imagePart, textPart]);
-    const response = await result.response.text();
+    // const textContent = result.candidates[0].content.parts[0].text;
+    // console.log(textContent) 
+    const response = result.response.text();
+    console.log(response)
     return response;
   } catch (error) {
     console.error('Error generating content:', error);

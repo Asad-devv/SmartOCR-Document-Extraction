@@ -7,6 +7,7 @@ import { Stage, Layer, Rect, Circle, Line } from 'react-konva';
 import { v4 as uuidv4 } from 'uuid';
 import processImageWithPrompt from "./prompt"; // Adjust path
 import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import ImageUploadAndProcess from './prompt';
 const Trigger = () => {
     const [dragActive, setDragActive] = useState(false);
     const [files, setFiles] = useState([]);
@@ -27,6 +28,8 @@ const Trigger = () => {
     const [pdfId, setPdfId] = useState(null); 
     const [allShapes, setAllShapes] = useState({});
     const [pdfScale, setPdfScale] = useState(1.0);
+
+    const [pdfImage, setpdfImage] = useState()
 
     const sendPageToModel = async () => {
         if (!pdfFile) {
@@ -63,13 +66,14 @@ const Trigger = () => {
         
             const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
             if (!imageBlob) throw new Error("Failed to create image blob.");
-        
+            const imageURL = URL.createObjectURL(imageBlob);
+
             const imageFile = new File([imageBlob], `page-${currentPage}.png`, { type: 'image/png' });
         
             console.log(`Page ${currentPage} successfully converted to image.`);
-            
+            setpdfImage(imageURL)
             // Process with the model
-            await processImageWithPrompt(imageFile, "Detect text within shapes.");
+            await processImageWithPrompt(imageFile, `here detect the data within the rectangle,square(probable color will be red) and extract text in json form strict ouput type(JSON) only return JSON object nothing else : {"value1":"value","value2":"value2  "}.`);
         } catch (error) {
             console.error('Error processing page:', error);
         }
@@ -205,7 +209,6 @@ const Trigger = () => {
                 const formData = new FormData();
                 formData.append('file', pdfFile);
     
-              
                 const response = await fetch('http://localhost:4000/api/pdf/upload', {
                     method: 'POST',
                     body: formData,
@@ -342,6 +345,7 @@ const Trigger = () => {
                     id="file-upload"
                     accept=".pdf,.docx,.doc,.png,.jpg,.tiff,.csv,.txt"
                 />
+            <img className='w-[100%] h-[100%]' src={pdfImage} alt="" />
 
                 <motion.div
                     className="mb-6 bg-green-500 text-white p-4 rounded-xl shadow-lg text-center"
@@ -538,7 +542,7 @@ const Trigger = () => {
 
             {pdfFile && (
                 <div className="relative mt-6 p-4 border border-gray-300 rounded-lg">
-                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
                         <div id="pdf-container" className="relative">
                             <Viewer
                                 fileUrl={pdfFile}

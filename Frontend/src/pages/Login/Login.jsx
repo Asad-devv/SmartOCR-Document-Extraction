@@ -19,7 +19,7 @@ const validationSchema = Yup.object({
 const SignIn = () => {
   const [loading, setLoading] = useState(false);  // Track loading state
   useState(false);  // Track loading state
-
+  const navigate = useNavigate()
   // Setup React Hook Form with Yup resolver
   const {
     register,
