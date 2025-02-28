@@ -5,6 +5,8 @@ import { Worker, Viewer } from '@react-pdf-viewer/core';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import { Stage, Layer, Rect, Circle, Line } from 'react-konva';
 import { v4 as uuidv4 } from 'uuid';
+import processImageWithPrompt from "./prompt"; // Adjust path
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 const Trigger = () => {
     const [dragActive, setDragActive] = useState(false);
     const [files, setFiles] = useState([]);
@@ -20,12 +22,60 @@ const Trigger = () => {
     const [selectedShapeType, setSelectedShapeType] = useState(null);
     const [isToolboxOpen, setIsToolboxOpen] = useState(false);
     const [pdfPages, setPdfPages] = useState([]);
-    const [currentPage, setCurrentPage] = useState(1); 
+    let   [currentPage, setCurrentPage] = useState(1); 
     const stageRef = useRef(null);
     const [pdfId, setPdfId] = useState(null); 
     const [allShapes, setAllShapes] = useState({});
+    const [pdfScale, setPdfScale] = useState(1.0);
 
-  
+    const sendPageToModel = async () => {
+        if (!pdfFile) {
+            console.error("No PDF file provided.");
+            return;
+        }
+        
+        try {
+            const loadingTask = pdfjsLib.getDocument(pdfFile);
+            const pdf = await loadingTask.promise;
+        
+          
+            if (currentPage < 1) {
+                console.warn(`Page number should start from 1. Resetting to page 1.`);
+                currentPage = 1;
+            }
+            if (currentPage > pdf.numPages) {
+                console.warn(`Page number exceeds total pages (${pdf.numPages}). Resetting to last page.`);
+                currentPage = pdf.numPages;
+            }
+        
+            const page = await pdf.getPage(currentPage);
+            console.log(`Processing page ${currentPage}`);
+        
+            const scale = pdfScale;
+            const viewport = page.getViewport({ scale });
+        
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const context = canvas.getContext('2d');
+        
+            await page.render({ canvasContext: context, viewport }).promise;
+        
+            const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            if (!imageBlob) throw new Error("Failed to create image blob.");
+        
+            const imageFile = new File([imageBlob], `page-${currentPage}.png`, { type: 'image/png' });
+        
+            console.log(`Page ${currentPage} successfully converted to image.`);
+            
+            // Process with the model
+            await processImageWithPrompt(imageFile, "Detect text within shapes.");
+        } catch (error) {
+            console.error('Error processing page:', error);
+        }
+        
+    };
+    
    
     useEffect(() => {
         const fetchShapes = async () => {
@@ -151,25 +201,25 @@ const Trigger = () => {
     
         if (pdfFile) {
             try {
-                // Step 1: Create a FormData object and append the file
+             
                 const formData = new FormData();
                 formData.append('file', pdfFile);
     
-                // Step 2: Send the file to the backend to get the pdfId
+              
                 const response = await fetch('http://localhost:4000/api/pdf/upload', {
                     method: 'POST',
                     body: formData,
                 });
     
-                // Log the response for debugging
+               
                 const responseText = await response.text();
                 console.log("Raw response:", responseText);
     
                 if (response.ok) {
-                    const data = JSON.parse(responseText); // Parse the response as JSON
+                    const data = JSON.parse(responseText);
                     const { pdfId } = data;
-                    setPdfId(pdfId); // Store the pdfId in state
-                    setPdfFile(URL.createObjectURL(pdfFile)); // Set PDF URL for viewing
+                    setPdfId(pdfId);
+                    setPdfFile(URL.createObjectURL(pdfFile)); 
                 } else {
                     alert("Error uploading PDF: " + responseText);
                 }
@@ -414,7 +464,12 @@ const Trigger = () => {
                     <button onClick={() => setIsModalOpen(true)} className="bg-green-500 text-white p-2 rounded ml-2">
                 Save Template
             </button>
-
+            <button 
+                        onClick={sendPageToModel} 
+                        className="bg-purple-500 text-white p-2 rounded ml-2"
+                    >
+                        Process Page
+                    </button>
             {isModalOpen && (
                 <motion.div
                     initial={{ opacity: 0 }}
@@ -483,7 +538,7 @@ const Trigger = () => {
 
             {pdfFile && (
                 <div className="relative mt-6 p-4 border border-gray-300 rounded-lg">
-                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
+                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
                         <div id="pdf-container" className="relative">
                             <Viewer
                                 fileUrl={pdfFile}
