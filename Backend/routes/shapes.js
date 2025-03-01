@@ -1,9 +1,12 @@
 const express = require('express');
-const { saveShapes, getShapes } = require('../controllers/shapeController');
+const { embedShapesInPDF,drawShapesOnPDF } = require('../controllers/shapeController');
 
 const router = express.Router();
 
-router.post('/save', saveShapes);
-router.get('/get/:pdfId/:pageNumber', getShapes);
+
+router.post('/embed', embedShapesInPDF);
+router.post('/draw', drawShapesOnPDF);
+
+
 
 module.exports = router;

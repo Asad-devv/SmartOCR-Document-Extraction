@@ -1,12 +1,10 @@
 const mongoose = require('mongoose');
 
-const pdfSchema = new mongoose.Schema({
-    pdfId: { type: String, required: true, unique: true }, 
-    fileName: { type: String, required: true }, 
-    fileHash: { type: String, required: true, unique: true },
-    uploadedAt: { type: Date, default: Date.now },
+const PdfSchema = new mongoose.Schema({
+    pdfId: { type: String, required: true, unique: true },
+    fileName: { type: String, required: true },
+    fileData: { type: Buffer, required: true }, // Store the actual PDF as binary data
+    contentType: { type: String, default: 'application/pdf' }
 });
 
-const PDF = mongoose.model('PDF', pdfSchema);
-
-module.exports = PDF;
+module.exports = mongoose.model('Pdf', PdfSchema);

@@ -1,39 +1,48 @@
-const PDF = require('../models/Pdf');
-const { v4: uuidv4 } = require('uuid');
-const crypto = require('crypto');
 
-const generateFileHash = (fileBuffer) => {
-    return crypto.createHash('sha256').update(fileBuffer).digest('hex');
-};
-
+const PDF = require("../models/Pdf");
+const { v4: uuidv4 } = require("uuid");
 exports.uploadPDF = async (req, res) => {
     try {
-        const { originalname, buffer } = req.file; 
+        if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-        if (!originalname || !buffer) {
-            return res.status(400).json({ message: 'File is required' });
-        }
+        const { originalname, buffer } = req.file;
 
-        
-        const fileHash = generateFileHash(buffer);
-
-       
-        const existingPDF = await PDF.findOne({ fileHash });
+        // 🔍 Check if a PDF with the same filename already exists
+        let existingPDF = await PDF.findOne({ fileName: originalname });
 
         if (existingPDF) {
-            console.log("PDF already exists with ID:", existingPDF.pdfId);
+            console.log("✅ PDF already exists. Returning existing pdfId:", existingPDF.pdfId);
             return res.status(200).json({ pdfId: existingPDF.pdfId });
         }
 
-      
-        const pdfId = uuidv4();
-        const newPDF = new PDF({ pdfId, fileName: originalname, fileHash });
-        await newPDF.save();
+        const newPDF = new PDF({
+            pdfId: uuidv4(),
+            fileName: originalname,
+            fileData: buffer,
+            contentType: 'application/pdf',
+        });
 
-        console.log("New PDF uploaded with ID:", pdfId);
-        return res.status(201).json({ pdfId });
+        await newPDF.save();
+        res.status(201).json({ message: 'PDF saved!', pdfId: newPDF.pdfId });
     } catch (error) {
-        console.error("Error uploading PDF:", error);
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+
+exports.getPDF = async (req, res) => {
+    try {
+        const { pdfId } = req.params;
+
+        const pdfRecord = await PDF.findOne({ pdfId });
+        if (!pdfRecord) {
+            return res.status(404).json({ message: 'PDF not found' });
+        }
+
+        res.setHeader('Content-Type', pdfRecord.contentType);
+        res.send(pdfRecord.fileData);
+    } catch (error) {
+        console.error('Error fetching PDF:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

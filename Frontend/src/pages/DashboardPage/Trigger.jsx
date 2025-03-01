@@ -5,9 +5,10 @@ import { Worker, Viewer } from '@react-pdf-viewer/core';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import { Stage, Layer, Rect, Circle, Line } from 'react-konva';
 import { v4 as uuidv4 } from 'uuid';
-import processImageWithPrompt from "./prompt"; // Adjust path
-import * as pdfjsLib from 'pdfjs-dist/build/pdf';
-import ImageUploadAndProcess from './prompt';
+import processImageWithPrompt from "./prompt"; 
+import { PDFDocument, rgb } from 'pdf-lib';
+import { saveAs } from 'file-saver';
+
 
 const Trigger = () => {
     const [dragActive, setDragActive] = useState(false);
@@ -24,159 +25,152 @@ const Trigger = () => {
     const [selectedShapeType, setSelectedShapeType] = useState(null);
     const [isToolboxOpen, setIsToolboxOpen] = useState(false);
     const [pdfPages, setPdfPages] = useState([]);
-    let   [currentPage, setCurrentPage] = useState(1); 
+    const [currentPage, setCurrentPage] = useState(0);
     const stageRef = useRef(null);
-    const [pdfId, setPdfId] = useState(null); 
+    const [pdfId, setPdfId] = useState(null);
     const [allShapes, setAllShapes] = useState({});
     const [pdfScale, setPdfScale] = useState(1.0);
-
-    const [pdfImage, setpdfImage] = useState()
-
-    const sendPageToModel = async () => {
-        if (!pdfFile) {
-            console.error("No PDF file provided.");
-            return;
-        }
-        
+    const [previewImage, setPreviewImage] = useState(null);
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+    const [userConfirmationCallback, setUserConfirmationCallback] = useState(null);
+   
+   
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || file.type !== 'application/pdf') return;
+    
+        const formData = new FormData();
+        formData.append('file', file);
+    
         try {
-            const loadingTask = pdfjsLib.getDocument(pdfFile);
-            const pdf = await loadingTask.promise;
-        
-          
-            if (currentPage < 1) {
-                console.warn(`Page number should start from 1. Resetting to page 1.`);
-                currentPage = 1;
+            const response = await fetch('http://localhost:4000/api/pdf/upload', {
+                method: 'POST',
+                body: formData
+            });
+    
+            const data = await response.json();
+            if (data.pdfId) {
+                setPdfId(data.pdfId);
+                setPdfFile(`http://localhost:4000/api/pdf/fetch/${data.pdfId}`);
+                console.log(" PDF uploaded successfully:", data.pdfId);
+            } else {
+                console.error(" Failed to get pdfId from server");
             }
-            if (currentPage > pdf.numPages) {
-                console.warn(`Page number exceeds total pages (${pdf.numPages}). Resetting to last page.`);
-                currentPage = pdf.numPages;
-            }
-        
-            const page = await pdf.getPage(currentPage);
-            console.log(`Processing page ${currentPage}`);
-        
-            const scale = pdfScale;
-            const viewport = page.getViewport({ scale });
-        
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            const context = canvas.getContext('2d');
-        
-            await page.render({ canvasContext: context, viewport }).promise;
-        
-            const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-            if (!imageBlob) throw new Error("Failed to create image blob.");
-            const imageURL = URL.createObjectURL(imageBlob);
-
-            const imageFile = new File([imageBlob], `page-${currentPage}.png`, { type: 'image/png' });
-        
-            console.log(`Page ${currentPage} successfully converted to image.`);
-            setpdfImage(imageURL)
-            // Process with the model
-            await processImageWithPrompt(imageFile, `here detect the data within the rectangle,square(probable color will be red) and extract text in json form strict ouput type(JSON) only return JSON object nothing else : {"value1":"value","value2":"value2  "}.`);
         } catch (error) {
-            console.error('Error processing page:', error);
+            console.error(" Error uploading PDF:", error);
         }
-        
     };
     
 
-    useEffect(() => {
-        const fetchShapes = async () => {
-            if (!pdfId) return;
+    const drawShapesOnPDF = async () => {
+        if (!pdfFile || !pdfId) {
+            alert(" PDF must be uploaded first.");
+            return;
+        }
     
-            try {
-                const response = await fetch(`http://localhost:4000/api/shapes/get/${pdfId}/${currentPage}`);
-                if (response.ok) {
-                    const data = await response.json();
-                   
-                    setAllShapes(prev => ({
-                        ...prev,
-                        [currentPage]: data.shapes || []
-                    }));
-                   
-                    setShapes(data.shapes || []);
-                }
-            } catch (error) {
-                console.error("Error fetching shapes:", error);
-                setShapes([]);
+        try {
+            console.log("🟢 Embedding shapes into the PDF...");
+    
+            const response = await fetch('http://localhost:4000/api/shapes/embed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pdfId,
+                    shapes,
+                    pageNumber: currentPage + 1,
+                    scaleFactor: pdfScale
+                }),
+            });
+    
+            const data = await response.json();
+            if (response.ok) {
+                alert("✅ Shapes embedded successfully!");
+                setShapes([]); 
+            } else {
+                alert(" Error embedding shapes: " + data.message);
             }
-        };
+        } catch (error) {
+            console.error(" Error embedding shapes:", error);
+        }
+    };
     
-        fetchShapes();
-    }, [pdfId, currentPage]);
+
+    const sendPageToModel = async () => {
+        if (!pdfId || !pdfFile) {
+            console.error("No PDF file or pdfId provided.");
+            return;
+        }
     
-   
+        try {
+            const loadingTask = pdfjsLib.getDocument(pdfFile);
+            const pdf = await loadingTask.promise;
+    
+            if (currentPage < 0 || currentPage >= pdf.numPages) {
+                console.error("Invalid page number.");
+                return;
+            }
+    
+            const page = await pdf.getPage(currentPage + 1);
+    
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const viewport = page.getViewport({ scale: pdfScale });
+    
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+    
+            await page.render({
+                canvasContext: context,
+                viewport: viewport,
+            }).promise;
+    
+            const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            if (!imageBlob) {
+                throw new Error("Failed to create image blob.");
+            }
+    
+            const imageURL = URL.createObjectURL(imageBlob);
+            const imageFile = new File([imageBlob], `page-${currentPage + 1}.png`, { type: 'image/png' });
+    
+            setPreviewImage(imageURL);
+            setIsPreviewModalOpen(true);
+    
+            // Ensure the callback is a function
+          
+                
+                    const modelResponse = await processImageWithPrompt(
+                        imageFile,
+                        `Extract text within rectangles (red) and return as JSON.`
+                    )
+                        console.log("Page processed and sent to the model.");
+                        console.log("Model Response:", modelResponse);
+                    
+                
+           
+        } catch (error) {
+            console.error("Error processing page:", error);
+        }
+    };
+    
+    const handlePreviewConfirm = () => {
+        setIsPreviewModalOpen(false);
+       
+    };
+    
+    const handlePreviewCancel = () => {
+        setIsPreviewModalOpen(false);
+       
+    };
     const handlePageChange = (e) => {
         const newPage = e.currentPage;
         setCurrentPage(newPage);
-     
+
         if (allShapes[newPage]) {
             setShapes(allShapes[newPage]);
         } else {
             setShapes([]);
         }
     };
-
-   
-    const saveTemplate = async () => {
-        if (!pdfFile || !pdfId || !templateName || !templateDescription) return;
-
-        try {
-            // Save shapes for current page
-            const currentPageShapes = shapes.map(shape => ({
-                type: shape.type,
-                coords: {
-                    x: shape.x,
-                    y: shape.y,
-                    width: shape.width,
-                    height: shape.height,
-                    radius: shape.radius || null,
-                    points: shape.points || null
-                }
-            }));
-
-            // Save shapes for current page
-            const shapeSaveResponse = await fetch('http://localhost:4000/api/shapes/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    pdfId,
-                    pageNumber: currentPage,
-                    shapes: currentPageShapes
-                }),
-            });
-
-            if (!shapeSaveResponse.ok) {
-                throw new Error('Failed to save shapes');
-            }
-
-            // Save template with all shapes
-            const templateResponse = await fetch('http://localhost:4000/api/template/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    templateName,
-                    description: templateDescription,
-                    pdfId,
-                    shapes: currentPageShapes
-                }),
-            });
-
-            if (templateResponse.ok) {
-                alert("Template saved successfully!");
-                setIsModalOpen(false);
-            } else {
-                throw new Error('Failed to save template');
-            }
-        } catch (error) {
-            console.error("Error saving template:", error);
-            alert("Error saving template: " + error.message);
-        }
-    };
-
-    
 
     const handleDrop = (e) => {
         e.preventDefault();
@@ -186,7 +180,7 @@ const Trigger = () => {
         setFiles(droppedFiles);
         const pdfFile = droppedFiles.find(file => file.type === 'application/pdf');
         if (pdfFile) {
-            setPdfFile(URL.createObjectURL(pdfFile)); // Set PDF URL for viewing
+            setPdfFile(URL.createObjectURL(pdfFile)); 
         }
     };
 
@@ -197,40 +191,6 @@ const Trigger = () => {
             setDragActive(true);
         } else if (e.type === 'dragleave') {
             setDragActive(false);
-        }
-    };
-    const handleFileChange = async (e) => {
-        const selectedFiles = [...e.target.files];
-        setFiles(selectedFiles);
-        const pdfFile = selectedFiles.find(file => file.type === 'application/pdf');
-    
-        if (pdfFile) {
-            try {
-             
-                const formData = new FormData();
-                formData.append('file', pdfFile);
-    
-                const response = await fetch('http://localhost:4000/api/pdf/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-    
-               
-                const responseText = await response.text();
-                console.log("Raw response:", responseText);
-    
-                if (response.ok) {
-                    const data = JSON.parse(responseText);
-                    const { pdfId } = data;
-                    setPdfId(pdfId);
-                    setPdfFile(URL.createObjectURL(pdfFile)); 
-                } else {
-                    alert("Error uploading PDF: " + responseText);
-                }
-            } catch (error) {
-                console.error("Error uploading PDF:", error);
-                alert("Error uploading PDF");
-            }
         }
     };
 
@@ -246,11 +206,9 @@ const Trigger = () => {
             type: selectedShapeType,
             x,
             y,
-            width: 0, // Start with zero width
-            height: 0, // Start with zero height
-            radius: 0, // Start with zero radius
-            points: selectedShapeType === 'line' ? [x, y, x, y] : null, // Start with the same point for line
-            page: currentPage, // Associate shape with the current page
+            width: 0, 
+            height: 0, 
+            page: currentPage,
         };
         setNewShape(newShape);
         setIsDrawing(true);
@@ -260,14 +218,12 @@ const Trigger = () => {
         if (isDrawing && newShape) {
             const updatedShapes = [...shapes, newShape];
             setShapes(updatedShapes);
-            
-          
+
             setAllShapes(prev => ({
                 ...prev,
                 [currentPage]: updatedShapes
             }));
 
-           
             try {
                 const shapesToSave = updatedShapes.map(shape => ({
                     type: shape.type,
@@ -276,8 +232,6 @@ const Trigger = () => {
                         y: shape.y,
                         width: shape.width,
                         height: shape.height,
-                        radius: shape.radius || null,
-                        points: shape.points || null
                     }
                 }));
 
@@ -300,19 +254,13 @@ const Trigger = () => {
         }
     };
 
-
-
     const handleMouseMove = (e) => {
         if (isDrawing) {
             const { x, y } = e.target.getStage().getPointerPosition();
             setNewShape(prevShape => ({
                 ...prevShape,
-                width: x - prevShape.x, // Dynamic width for rectangle
-                height: y - prevShape.y, // Dynamic height for rectangle
-                radius: selectedShapeType === 'circle'
-                    ? Math.sqrt(Math.pow(x - prevShape.x, 2) + Math.pow(y - prevShape.y, 2))
-                    : null, // Dynamic radius for circle
-                points: selectedShapeType === 'line' ? [prevShape.x, prevShape.y, x, y] : null, // Dynamic points for line
+                width: x - prevShape.x,
+                height: y - prevShape.y,
             }));
         }
     };
@@ -331,8 +279,6 @@ const Trigger = () => {
         setPdfPages([...Array(numPages).keys()]);
     };
 
-  
-
     return (
         <div className="max-w-2xl mx-auto p-6 lg:pt-0 pt-[34%]">
             <motion.div
@@ -348,8 +294,6 @@ const Trigger = () => {
                     id="file-upload"
                     accept=".pdf,.docx,.doc,.png,.jpg,.tiff,.csv,.txt"
                 />
-            <img className='w-[100%] h-[100%]' src={pdfImage} alt="" />
-
                 <motion.div
                     className="mb-6 bg-green-500 text-white p-4 rounded-xl shadow-lg text-center"
                     whileHover={{ scale: 1.02 }}
@@ -362,7 +306,6 @@ const Trigger = () => {
                         </span>
                     </label>
                 </motion.div>
-
                 <motion.label
                     htmlFor="file-upload"
                     className={`
@@ -390,7 +333,6 @@ const Trigger = () => {
                     </motion.div>
                 </motion.label>
             </motion.div>
-
             <AnimatePresence>
                 {files.length > 0 && (
                     <motion.div
@@ -435,7 +377,6 @@ const Trigger = () => {
                     </motion.div>
                 )}
                 <div className="flex space-x-4 mt-4">
-                    {/* Toolbox Icon */}
                     <div className="relative">
                         <button
                             onClick={openToolbox}
@@ -443,7 +384,6 @@ const Trigger = () => {
                         >
                             <Shapes className="w-5 h-5 mr-2" /> Shapes
                         </button>
-                        {/* Toolbox Dropdown */}
                         {isToolboxOpen && (
                             <div className="absolute mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                                 <button
@@ -467,85 +407,115 @@ const Trigger = () => {
                             </div>
                         )}
                     </div>
-
                     <button onClick={() => setIsModalOpen(true)} className="bg-green-500 text-white p-2 rounded ml-2">
-                Save Template
-            </button>
-            <button 
+                        Save Template
+                    </button>
+                    <button 
                         onClick={sendPageToModel} 
                         className="bg-purple-500 text-white p-2 rounded ml-2"
                     >
                         Process Page
                     </button>
-            {isModalOpen && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-                >
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-200/30"
-                    >
-                        <h2 className="text-xl font-semibold mb-4 text-gray-800">
-                            Add a name and description for your template
-                        </h2>
-                        <form onSubmit={(e) => { e.preventDefault(); saveTemplate(); }} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={templateName}
-                                    onChange={(e) => setTemplateName(e.target.value)}
-                                    className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-themeBlue focus:border-themeBlue transition-all duration-200"
-                                    placeholder="Enter template name"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Description
-                                </label>
-                                <textarea
-                                    value={templateDescription}
-                                    onChange={(e) => setTemplateDescription(e.target.value)}
-                                    rows="4"
-                                    className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-themeBlue focus:border-themeBlue transition-all duration-200"
-                                    placeholder="Enter template description"
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-3 mt-4">
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                                >
-                                    Cancel
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    type="submit"
-                                    className="px-4 py-2 bg-gradient-to-r from-themeBlue to-blue-600 text-white rounded-lg hover:shadow-lg transition-all duration-200"
-                                >
-                                    Save Template
-                                </motion.button>
-                            </div>
-                        </form>
-                    </motion.div>
-                </motion.div>
-            )}
-       
+                    {isModalOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-200/30"
+                            >
+                                <h2 className="text-xl font-semibold mb-4 text-gray-800">
+                                    Add a name and description for your template
+                                </h2>
+                                <form onSubmit={(e) => { e.preventDefault(); drawShapesOnPDF(); }} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={templateName}
+                                            onChange={(e) => setTemplateName(e.target.value)}
+                                            className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-themeBlue focus:border-themeBlue transition-all duration-200"
+                                            placeholder="Enter template name"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Description
+                                        </label>
+                                        <textarea
+                                            value={templateDescription}
+                                            onChange={(e) => setTemplateDescription(e.target.value)}
+                                            rows="4"
+                                            className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-themeBlue focus:border-themeBlue transition-all duration-200"
+                                            placeholder="Enter template description"
+                                        />
+                                    </div>
+                                    <div className="flex justify-end space-x-3 mt-4">
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            type="button"
+                                            onClick={() => setIsModalOpen(false)}
+                                            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
+                                        >
+                                            Cancel
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            type="submit"
+                                            className="px-4 py-2 bg-gradient-to-r from-themeBlue to-blue-600 text-white rounded-lg hover:shadow-lg transition-all duration-200"
+                                        >
+                                            Save Template
+                                        </motion.button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </motion.div>
+                    )}
                 </div>
             </AnimatePresence>
-
+            {isPreviewModalOpen && (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+            >
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl mx-4 shadow-2xl border border-gray-200/30"
+                >
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">
+                        Preview Image
+                    </h2>
+                    <img
+                        src={previewImage}
+                        alt="Preview of processed page"
+                        className="max-w-full max-h-[70vh] object-contain"
+                    />
+                    <div className="flex justify-end mt-4">
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handlePreviewCancel}
+                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
+                        >
+                            Cancel
+                        </motion.button>
+                       
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
             {pdfFile && (
                 <div className="relative mt-6 p-4 border border-gray-300 rounded-lg">
-                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
+                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
                         <div id="pdf-container" className="relative">
                             <Viewer
                                 fileUrl={pdfFile}
@@ -554,7 +524,6 @@ const Trigger = () => {
                             />
                         </div>
                     </Worker>
-
                     <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
                         <Stage
                             ref={stageRef}
@@ -566,39 +535,35 @@ const Trigger = () => {
                             className="absolute top-0 left-0 pointer-events-auto"
                         >
                             <Layer>
-                             
                                 {shapes.map((shape, i) => {
-    
-    
-    if (shape.page === currentPage) {
-        if (shape.type === 'rectangle') {
-            return (
-                <Rect
-                    key={shape.id}
-                    x={shape.x}
-                    y={shape.y}
-                    width={shape.width}
-                    height={shape.height}
-                    draggable
-                    stroke="red"
-                    strokeWidth={2}
-                    onClick={() => setSelectedId(shape.id)}
-                    onDragEnd={(e) => {
-                        const updatedShapes = shapes.map((s) =>
-                            s.id === shape.id 
-                                ? { ...s, x: e.target.x(), y: e.target.y() } 
-                                : s
-                        );
-                        setShapes(updatedShapes);
-                    }}
-                />
-            );
-        }
-        // ... similar updates for Circle and Line components
-    }
-    return null;
-})}
-                             
+                                    if (shape.page === currentPage) {
+                                        if (shape.type === 'rectangle') {
+                                            return (
+                                                <Rect
+                                                    key={shape.id}
+                                                    x={shape.x}
+                                                    y={shape.y}
+                                                    width={shape.width}
+                                                    height={shape.height}
+                                                    draggable
+                                                    stroke="red"
+                                                    strokeWidth={2}
+                                                    onClick={() => setSelectedId(shape.id)}
+                                                    onDragEnd={(e) => {
+                                                        const updatedShapes = shapes.map((s) =>
+                                                            s.id === shape.id 
+                                                                ? { ...s, x: e.target.x(), y: e.target.y() } 
+                                                                : s
+                                                        );
+                                                        setShapes(updatedShapes);
+                                                    }}
+                                                />
+                                            );
+                                        }
+                                        // ... similar updates for Circle and Line components
+                                    }
+                                    return null;
+                                })}
                                 {newShape && (
                                     <>
                                         {newShape.type === 'rectangle' && (

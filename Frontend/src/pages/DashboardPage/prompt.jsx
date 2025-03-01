@@ -1,5 +1,4 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
 async function processImageWithPrompt(imageFile, prompt) {
   if (!imageFile || !prompt) {
     throw new Error('Both image and prompt are required.');
@@ -17,19 +16,18 @@ async function processImageWithPrompt(imageFile, prompt) {
     },
   };
 
-  const textPart = {
-    text: prompt,
-  };
+  const textPart = { text: prompt };
 
   try {
     const result = await model.generateContent([imagePart, textPart]);
-    // const textContent = result.candidates[0].content.parts[0].text;
-    // console.log(textContent) 
-    const response = result.response.text();
-    console.log(response)
-    return response;
+
+    const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received";
+    console.log("📝 Model Response:", responseText);
+
+    return responseText;
+
   } catch (error) {
-    console.error('Error generating content:', error);
+    console.error(' Error generating content:', error);
     throw new Error('An error occurred while generating the content.');
   }
 }
