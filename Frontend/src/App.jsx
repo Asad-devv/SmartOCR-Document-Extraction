@@ -5,6 +5,7 @@ import Navbar from "./Components/Navbar";
 import Signup from "./pages/Signup/Signup";
 import { Toaster } from "react-hot-toast";
 import DashboardHome from "./pages/DashboardPage/DashboardHome";
+import ImageWithShape from "./pages/DashboardPage/Test"
 
 function App() {
   return (
@@ -17,7 +18,7 @@ function App() {
         <Route path="/login" element={<SignIn />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard/*" exact element={<DashboardHome />} />
-
+<Route path="/test" element={<ImageWithShape/>} />
       </Routes>
     </Router>
     </>

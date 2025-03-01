@@ -140,7 +140,7 @@ const Trigger = () => {
                 
                     const modelResponse = await processImageWithPrompt(
                         imageFile,
-                        `Extract text within rectangles (red) and return as JSON.`
+                        `here detect the data within the rectangle,square(probable color will be red) and extract text in json form strict ouput type(JSON) only return JSON object nothing else : {"value1":"value","value2":"value2  "}`
                     )
                         console.log("Page processed and sent to the model.");
                         console.log("Model Response:", modelResponse);
