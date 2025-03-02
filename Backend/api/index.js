@@ -12,10 +12,10 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(express.json());  
-app.use(cors()); 
+app.use(cors({ origin: 'http://localhost:5173' })); 
 
 app.use('/api/auth', authRoutes);
-app.use('/api/shapes', shapeRoutes);
+app.use('/api/shape', shapeRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/template', templateRoutes);
 

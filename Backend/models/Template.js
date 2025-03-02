@@ -8,7 +8,6 @@ const templateSchema = new mongoose.Schema({
     pageNumber: { type: Number, required: true }, 
     shapes: [{
         type: { type: String },
-        fieldName: { type: String, required: true }, 
         coords: {
             x: Number,
             y: Number,
