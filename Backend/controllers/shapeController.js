@@ -1,21 +1,24 @@
-const Shape = require('../models/Shape');
 const { PDFDocument, rgb } = require('pdf-lib');
 const PDF = require('../models/Pdf');
-const fs = require('fs').promises;
+const Shape = require('../models/Shape');
+const fs = require('fs');
+const path = require('path');
+const poppler = require('pdf-poppler');
 
 exports.processPageWithShapes = async (req, res) => {
   try {
     const { pdfId, pageNumber, shapes } = req.body;
-
     if (!pdfId || !pageNumber || !shapes) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    console.log('Fetching PDF record for pdfId:', pdfId);
     const pdfRecord = await PDF.findOne({ pdfId });
     if (!pdfRecord) {
       return res.status(404).json({ message: 'PDF not found' });
     }
 
+    console.log('PDF fileData length:', pdfRecord.fileData.length);
     const pdfDoc = await PDFDocument.load(pdfRecord.fileData);
     const pages = pdfDoc.getPages();
     if (pageNumber < 1 || pageNumber > pages.length) {
@@ -24,14 +27,14 @@ exports.processPageWithShapes = async (req, res) => {
 
     const page = pages[pageNumber - 1];
     const { width: pdfWidth, height: pdfHeight } = page.getSize();
-   
+    console.log('PDF page dimensions:', { width: pdfWidth, height: pdfHeight });
 
+   
     shapes.forEach(shape => {
       if (shape.type === 'rectangle' && shape.page === pageNumber - 1) {
-      
         page.drawRectangle({
           x: shape.x,
-          y: pdfHeight - shape.y - shape.height,
+          y: pdfHeight - shape.y - shape.height, 
           width: shape.width,
           height: shape.height,
           borderColor: rgb(1, 0, 0),
@@ -40,49 +43,46 @@ exports.processPageWithShapes = async (req, res) => {
       }
     });
 
+    console.log('Saving modified PDF...');
     const modifiedPdfBytes = await pdfDoc.save();
-    const tempPdfPath = 'temp.pdf';
-    await fs.writeFile(tempPdfPath, modifiedPdfBytes);
 
-    const gsPath = 'C:\\Program Files\\gs\\gs10.04.0\\bin\\gswin64c.exe';
-    const outputPath = 'output.png';
-    await new Promise((resolve, reject) => {
-      require('child_process').execFile(
-        gsPath,
-        [
-          '-q',
-          '-dNOPAUSE',
-          '-dBATCH',
-          '-sDEVICE=png16m',
-          `-dFirstPage=${pageNumber}`,
-          `-dLastPage=${pageNumber}`,
-          `-sOutputFile=${outputPath}`,
-          '-r300',
-          tempPdfPath,
-        ],
-        (error, stdout, stderr) => {
-          if (error) {
-            console.error('Ghostscript error:', error, stderr);
-            reject(error);
-          } else {
-            console.log('Ghostscript output:', stdout);
-            resolve();
-          }
-        }
-      );
-    });
+    const outputDir = path.join(__dirname, 'output_images');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
 
-    const pngBuffer = await fs.readFile(outputPath);
+    const modifiedPdfPath = path.join(outputDir, 'modified_pdf.pdf');
+    await fs.promises.writeFile(modifiedPdfPath, modifiedPdfBytes);
+
+    console.log('Converting PDF to image using pdf-poppler...');
+    const opts = {
+      format: 'png',
+      out_dir: outputDir,
+      out_prefix: 'output_page',
+      page: pageNumber,
+      scale: 300,
+    };
+    await poppler.convert(modifiedPdfPath, opts);
+
+    const outputImagePath = path.join(outputDir, `output_page-${pageNumber}.png`);
+    console.log(`Checking generated file: ${outputImagePath}`);
+
+    if (!fs.existsSync(outputImagePath)) {
+      throw new Error(`Image conversion failed. Expected file not found: ${outputImagePath}`);
+    }
+
+    const imageBuffer = await fs.promises.readFile(outputImagePath);
     res.setHeader('Content-Type', 'image/png');
-    res.send(pngBuffer);
+    res.send(imageBuffer);
 
-    await fs.unlink(tempPdfPath);
-    await fs.unlink(outputPath);
   } catch (error) {
     console.error('Error processing page with shapes:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+
+
 
 exports.getShapes = async (req, res) => {
   try {
@@ -155,9 +155,9 @@ exports.embedShapesInPDF = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    res.status(200).json({ message: " Shapes embedded successfully!" });
+    res.status(200).json({ message: 'Shapes embedded successfully!' });
   } catch (error) {
-    console.error(" Error embedding shapes:", error);
+    console.error('Error embedding shapes:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

@@ -44,13 +44,22 @@ const Trigger = () => {
   
   useEffect(() => {
     const fetchPdfs = async () => {
-      const response = await fetch('http://localhost:4000/api/pdf/list');
-      const data = await response.json();
-      setPdfs(data.map(pdf => ({
-        pdfId: pdf.pdfId,
-        url: `http://localhost:4000/api/pdf/fetch/${pdf.pdfId}`,
-        shapes: [],
-      })));
+      try {
+        const response = await fetch('http://localhost:4000/api/pdf/list');
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const data = await response.json();
+        setPdfs(data.map(pdf => ({
+          pdfId: pdf.pdfId,
+          url: `http://localhost:4000/api/pdf/fetch/${pdf.pdfId}`,
+          shapes: [],
+        })));
+      } catch (error) {
+        console.error('Error fetching PDFs:', error);
+        // Optionally set a default state or notify the user
+        setPdfs([]); // Fallback to empty array
+      }
     };
     fetchPdfs();
     refreshTemplates();
