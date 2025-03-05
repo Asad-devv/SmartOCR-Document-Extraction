@@ -1,23 +1,20 @@
-// models/Template.js
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const templateSchema = new mongoose.Schema({
-    templateName: { type: String, required: true },
-    description: { type: String, required: true },
-    pdfId: { type: String, required: true },
-    pageNumber: { type: Number, required: true }, 
-    shapes: [{
-        type: { type: String },
-        coords: {
-            x: Number,
-            y: Number,
-            width: Number,
-            height: Number,
-            radius: { type: Number, default: null },
-            points: { type: [Number], default: null }
-        }
-    }]
+const TemplateSchema = new mongoose.Schema({
+  templateName: { type: String, required: true },
+  description: { type: String, required: true },
+  pageNumber: { type: Number, required: true },
+  shapes: [
+    {
+      type: { type: String, required: true },
+      coords: {
+        x: { type: Number, required: true },
+        y: { type: Number, required: true },
+        width: { type: Number, required: true },
+        height: { type: Number, required: true },
+      },
+    },
+  ],
 });
 
-const Template = mongoose.model('Template', templateSchema);
-module.exports = Template;
+module.exports = mongoose.model("Template", TemplateSchema);

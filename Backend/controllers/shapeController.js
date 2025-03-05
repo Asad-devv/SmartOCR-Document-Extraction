@@ -1,40 +1,35 @@
-const { PDFDocument, rgb } = require('pdf-lib');
-const PDF = require('../models/Pdf');
-const Shape = require('../models/Shape');
-const fs = require('fs');
-const path = require('path');
-const poppler = require('pdf-poppler');
+const { PDFDocument, rgb } = require("pdf-lib");
+const fs = require("fs").promises;
+const path = require("path");
+const poppler = require("pdf-poppler");
 
 exports.processPageWithShapes = async (req, res) => {
   try {
-    const { pdfId, pageNumber, shapes } = req.body;
-    if (!pdfId || !pageNumber || !shapes) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    const { pageNumber, shapes } = req.body;
+    const pdfBuffer = req.file.buffer;
+
+    if (!pdfBuffer || !pageNumber || !shapes) {
+      return res.status(400).json({ message: "Missing required fields (pdf, pageNumber, shapes)" });
     }
 
-    console.log('Fetching PDF record for pdfId:', pdfId);
-    const pdfRecord = await PDF.findOne({ pdfId });
-    if (!pdfRecord) {
-      return res.status(404).json({ message: 'PDF not found' });
+    // Parse the shapes string into an array
+    let parsedShapes;
+    try {
+      parsedShapes = JSON.parse(shapes);
+    } catch (error) {
+      return res.status(400).json({ message: "Invalid shapes data: not a valid JSON array" });
     }
 
-    console.log('PDF fileData length:', pdfRecord.fileData.length);
-    const pdfDoc = await PDFDocument.load(pdfRecord.fileData);
+    const pdfDoc = await PDFDocument.load(pdfBuffer);
     const pages = pdfDoc.getPages();
-    if (pageNumber < 1 || pageNumber > pages.length) {
-      return res.status(400).json({ message: 'Invalid page number' });
-    }
-
     const page = pages[pageNumber - 1];
-    const { width: pdfWidth, height: pdfHeight } = page.getSize();
-    console.log('PDF page dimensions:', { width: pdfWidth, height: pdfHeight });
+    const { height: pdfHeight } = page.getSize();
 
-   
-    shapes.forEach(shape => {
-      if (shape.type === 'rectangle' && shape.page === pageNumber - 1) {
+    parsedShapes.forEach((shape) => {
+      if (shape.type === "rectangle" && shape.page === pageNumber - 1) {
         page.drawRectangle({
           x: shape.x,
-          y: pdfHeight - shape.y - shape.height, 
+          y: pdfHeight - shape.y - shape.height,
           width: shape.width,
           height: shape.height,
           borderColor: rgb(1, 0, 0),
@@ -43,45 +38,45 @@ exports.processPageWithShapes = async (req, res) => {
       }
     });
 
-    console.log('Saving modified PDF...');
     const modifiedPdfBytes = await pdfDoc.save();
+    const outputDir = path.join(__dirname, "output_images");
+    await fs.mkdir(outputDir, { recursive: true });
+    const modifiedPdfPath = path.join(outputDir, "modified_pdf.pdf");
+    await fs.writeFile(modifiedPdfPath, modifiedPdfBytes);
 
-    const outputDir = path.join(__dirname, 'output_images');
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    const modifiedPdfPath = path.join(outputDir, 'modified_pdf.pdf');
-    await fs.promises.writeFile(modifiedPdfPath, modifiedPdfBytes);
-
-    console.log('Converting PDF to image using pdf-poppler...');
     const opts = {
-      format: 'png',
+      format: "png",
       out_dir: outputDir,
-      out_prefix: 'output_page',
+      out_prefix: "output_page",
       page: pageNumber,
       scale: 300,
     };
     await poppler.convert(modifiedPdfPath, opts);
 
     const outputImagePath = path.join(outputDir, `output_page-${pageNumber}.png`);
-    console.log(`Checking generated file: ${outputImagePath}`);
 
-    if (!fs.existsSync(outputImagePath)) {
-      throw new Error(`Image conversion failed. Expected file not found: ${outputImagePath}`);
+    // Check if the image file exists
+    try {
+      await fs.access(outputImagePath);
+    } catch (error) {
+      throw new Error("Image conversion failed. File not found at: " + outputImagePath);
     }
 
-    const imageBuffer = await fs.promises.readFile(outputImagePath);
-    res.setHeader('Content-Type', 'image/png');
+    const imageBuffer = await fs.readFile(outputImagePath);
+    res.setHeader("Content-Type", "image/png");
     res.send(imageBuffer);
 
+    console.log("PDF buffer length:", pdfBuffer.length);
+    console.log("Shapes received (parsed):", parsedShapes);
+    console.log("Generated image path:", outputImagePath);
+
+    // Cleanup (moved after response to ensure it doesn't interfere)
+    await Promise.all([fs.unlink(modifiedPdfPath), fs.unlink(outputImagePath)]);
   } catch (error) {
-    console.error('Error processing page with shapes:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error processing page with shapes:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
 
 
 exports.getShapes = async (req, res) => {

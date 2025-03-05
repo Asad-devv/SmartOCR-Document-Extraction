@@ -67,32 +67,29 @@ const Trigger = () => {
   
   const saveTemplate = async (e) => {
     e.preventDefault();
-    if (!pdfId || !shapes.length) return;
-  
-    const shapesToSave = shapes.map(shape => ({
+    if (!shapes.length) return;
+
+    const shapesToSave = shapes.map((shape) => ({
       type: shape.type,
       coords: { x: shape.x, y: shape.y, width: shape.width, height: shape.height },
     }));
-  
+
     try {
-      const response = await fetch('http://localhost:4000/api/template/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("http://localhost:4000/api/template/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           templateName,
           description: templateDescription,
-          pdfId,
           pageNumber: currentPage,
           shapes: shapesToSave,
         }),
       });
-      const savedTemplate = await response.json();
       if (response.ok) {
-        setTemplates(prev => [...prev, savedTemplate]);
-        refreshTemplates(); // Ensure latest templates are fetched
+        refreshTemplates();
         setIsModalOpen(false);
-        setTemplateName('');
-        setTemplateDescription('');
+        setTemplateName("");
+        setTemplateDescription("");
       }
     } catch (error) {
       console.error("Error saving template:", error);
@@ -177,105 +174,106 @@ const Trigger = () => {
   };
 
   const sendPageToModel = async () => {
-    if (!pdfId || !pdfFile) {
-      console.log("Missing pdfId or pdfFile, aborting");
+    if (!pdfFile) {
+      console.error("No PDF file selected");
       return;
     }
-
+  
+    const response = await fetch(pdfFile);
+    const pdfBlob = await response.blob();
+    if (!pdfBlob || pdfBlob.size === 0) {
+      console.error("Invalid or empty PDF blob");
+      return;
+    }
+  
+    const filteredShapes = shapes.filter((shape) => shape.page === currentPage - 1);
+    if (!filteredShapes.length || !currentPage || currentPage < 1) {
+      console.error("Invalid page number or no shapes to process");
+      return;
+    }
+  
+    console.log("Shapes before sending:", filteredShapes); // Debug log
+  
+    const formData = new FormData();
+    formData.append("pdf", pdfBlob, "temp.pdf");
+    formData.append("pageNumber", currentPage);
+    formData.append("shapes", JSON.stringify(filteredShapes));
+  
     try {
-      const response = await fetch('http://localhost:4000/api/shape/process-page', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pdfId,
-          pageNumber: currentPage,
-          shapes: shapes.filter(shape => shape.page === currentPage - 1),
-        }),
+      const processResponse = await fetch("http://localhost:4000/api/shape/process-page", {
+        method: "POST",
+        body: formData,
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Failed to process page: ${text}`);
+      if (!processResponse.ok) {
+        const errorText = await processResponse.text();
+        console.error("Failed to process page:", errorText);
+        alert("Failed to process page: " + errorText);
+        return;
       }
-
-      const imageBlob = await response.blob();
-      const imageURL = URL.createObjectURL(imageBlob);
-      setPreviewImage(imageURL);
+      const imageBlob = await processResponse.blob();
+      console.log("Received image blob:", imageBlob);
+      setPreviewImage(URL.createObjectURL(imageBlob));
       setIsPreviewModalOpen(true);
-
-      const imageFile = new File([imageBlob], `page-${currentPage}.png`, { type: 'image/png' });
-      const modelResponse = await processImageWithPrompt(
-        imageFile,
-        `Extract text within red rectangles and return as JSON`
-      );
-      console.log("Model Response:", modelResponse);
+      console.log("Sending PDF blob and shapes:", {
+        pdfBlobSize: pdfBlob.size,
+        pageNumber: currentPage,
+        shapes: filteredShapes,
+      });
     } catch (error) {
       console.error("Error processing page:", error);
+      alert("Error processing page: " + error.message);
     }
   };
-
+  const handleClosePreview = () => {
+    if (previewImage) {
+      URL.revokeObjectURL(previewImage);
+    }
+    setIsPreviewModalOpen(false);
+    setPreviewImage(null);
+  };
   const selectPdf = (pdf) => {
     setPdfFile(pdf.url);
     setPdfId(pdf.pdfId);
     setShapes(allShapes[pdf.pdfId]?.[currentPage - 1] || []);
   };
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (!file || file.type !== 'application/pdf') return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('http://localhost:4000/api/pdf/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (data.pdfId) {
-        const newPdf = {
-          pdfId: data.pdfId,
-          url: `http://localhost:4000/api/pdf/fetch/${data.pdfId}`,
-          shapes: [],
-        };
-        setPdfs(prev => [...prev, newPdf]);
-        setPdfFile(newPdf.url);
-        setPdfId(newPdf.pdfId);
-      }
-    } catch (error) {
-      console.error("Error uploading PDF:", error);
-    }
+    if (!file || file.type !== "application/pdf") return;
+    const url = URL.createObjectURL(file);
+    setPdfFile(url);
+    setPdfId(uuidv4()); // Local ID for this session
+    setShapes([]);
   };
 
 
   const applyTemplate = async (templateId) => {
-    if (!pdfId) {
-      console.error("No PDF selected to apply template to.");
-      return;
-    }
-    if (!templateId || templateId === "") { // Add this check
-      console.log("No template selected, aborting.");
-      return;
-    }
+    if (!pdfFile || !templateId) return;
+  
+    const response = await fetch(pdfFile);
+    const pdfBlob = await response.blob();
+    const formData = new FormData();
+    formData.append("pdf", pdfBlob, "temp.pdf");
+    formData.append("templateId", templateId);
+    formData.append("pageNumber", currentPage);
   
     try {
-      const response = await fetch('http://localhost:4000/api/template/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateId, pdfId, pageNumber: currentPage }),
+      const applyResponse = await fetch("http://localhost:4000/api/template/apply", {
+        method: "POST",
+        body: formData,
       });
-  
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`HTTP error! Status: ${response.status}, Body: ${text}`);
+      if (!applyResponse.ok) {
+        const errorText = await applyResponse.text();
+        console.error("Failed to apply template:", errorText);
+        alert("Failed to apply template: " + errorText);
+        return;
       }
   
-      const data = await response.json();
-      const { template } = data;
-      if (!template) return;
+      const data = await applyResponse.json();
+      console.log("Template response:", data); // Debug log
   
-      const appliedShapes = template.shapes.map(shape => ({
+      const template = data.template || {};
+      const appliedShapes = (template.shapes || []).map((shape) => ({
         id: uuidv4(),
         type: shape.type,
         x: shape.coords.x,
@@ -284,14 +282,10 @@ const Trigger = () => {
         height: shape.coords.height,
         page: currentPage - 1,
       }));
-  
-      setShapes([...appliedShapes]);
-      setAllShapes(prev => ({
-        ...prev,
-        [pdfId]: { ...prev[pdfId], [currentPage - 1]: [...appliedShapes] },
-      }));
+      setShapes(appliedShapes);
     } catch (error) {
       console.error("Error applying template:", error);
+      alert("Error applying template: " + error.message);
     }
   };
 
@@ -596,14 +590,12 @@ const Trigger = () => {
             <h2 className="text-xl font-semibold mb-4 text-gray-800">Preview Image</h2>
             <img src={previewImage} alt="Preview of processed page" className="max-w-full max-h-[70vh] object-contain" />
             <div className="flex justify-end mt-4">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setIsPreviewModalOpen(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
-              >
-                Close
-              </motion.button>
+            <motion.button
+  onClick={handleClosePreview}
+  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
+>
+  Close
+</motion.button>
             </div>
           </motion.div>
         </motion.div>

@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const shapeSchema = new mongoose.Schema({
     pdfId: String,  
-    pageNumber: Number,  
     shapes: [
         {
             type: { type: String },  
