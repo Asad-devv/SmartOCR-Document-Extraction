@@ -27,10 +27,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => { // Accept props
     };
 
     return (
-        <div className="relative">
+        <div className="relative bg-white">
             <button
                 onClick={() => setIsOpen(!isOpen)} // Toggle function
-                className="fixed z-20 top-[17%] left-[-0.5%] p-3 rounded-lg bg-themeBlue text-white shadow-lg hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center"
+                className="fixed z-20 top-[12%] left-[-0.5%] p-3 rounded-lg bg-themeBlue text-white shadow-lg hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center"
                 aria-label="Toggle Menu"
             >
                 {!isOpen ? <FaArrowRight size={10} />
@@ -42,16 +42,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => { // Accept props
                 initial="closed"
                 animate={isOpen ? "open" : "closed"}
                 variants={menuVariants}
-                className="fixed lg:top-[22%] top-[14%] left-0 h-full bg-white shadow-lg z-10 w-64"
+                className="fixed lg:top-[12%] top-[11%] left-0 h-full bg-white shadow-lg z-10 w-64"
             >
                 <div className="p-4 lg:pt-2 pt-[25%]"> {/* Added top padding to avoid overlap with button */}
-
-
-       
-
-
-
-
 
                     {/* First Set of Buttons */}
                     <div className="space-y-5">

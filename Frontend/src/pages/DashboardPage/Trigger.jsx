@@ -5,9 +5,12 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
 import { v4 as uuidv4 } from 'uuid';
 import processImageWithPrompt from './prompt';
+import { RenderJson } from './prompt';
 
 const Trigger = () => {
   const [dragActive, setDragActive] = useState(false);
+  const [jsonResponse, setJsonResponse] = useState(null);
+
   const [files, setFiles] = useState([]);
   const [pdfFile, setPdfFile] = useState(null);
   const [shapes, setShapes] = useState([]);
@@ -219,7 +222,9 @@ const Trigger = () => {
         pageNumber: currentPage,
         shapes: filteredShapes,
       });
-    } catch (error) {
+        const res=  await processImageWithPrompt(imageBlob," extract text in this image that are the in the red squares/rectangle only extract from red color shapes nothing else and return json response, only return json nothing else and also dont include anything extra that is not in the image")
+        setJsonResponse(res)
+      } catch (error) {
       console.error("Error processing page:", error);
       alert("Error processing page: " + error.message);
     }
@@ -589,6 +594,8 @@ const Trigger = () => {
           >
             <h2 className="text-xl font-semibold mb-4 text-gray-800">Preview Image</h2>
             <img src={previewImage} alt="Preview of processed page" className="max-w-full max-h-[70vh] object-contain" />
+            <RenderJson data={jsonResponse}/>
+            
             <div className="flex justify-end mt-4">
             <motion.button
   onClick={handleClosePreview}

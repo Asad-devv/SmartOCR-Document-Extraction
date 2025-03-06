@@ -2,8 +2,6 @@ import { useState } from 'react'; // Import useState
 import { Routes, Route } from "react-router-dom";
 
 
-
-
 import Sidebar from './Sidebar';
 import Overview from './Overview';
 import MyTemplates from './MyTemplates';
@@ -14,7 +12,7 @@ const DashboardHome = () => {
     const [isOpen, setIsOpen] = useState(true); // State for toggling menu
 
     return (
-        <section className="pt-[7%] h-full  mb-6 px-0 h-auto flex flex-row items-start">
+        <section className="pt-[7%] bg-white h-full  mb-6 px-0 h-auto flex flex-row items-start">
             <aside
                 className={`leftDashboard flex flex-col gap-2 transition-all duration-700`}
                 style={{ width: isOpen ? '17%' : '0' }} // Use inline style for smooth transition

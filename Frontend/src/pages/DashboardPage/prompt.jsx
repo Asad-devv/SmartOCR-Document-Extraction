@@ -21,7 +21,7 @@ async function processImageWithPrompt(imageFile, prompt) {
   try {
     const result = await model.generateContent([imagePart, textPart]);
 
-    const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received";
+    const responseText = result.response.text() || "No response received";
     console.log("📝 Model Response:", responseText);
 
     return responseText;
@@ -45,3 +45,48 @@ function fileToBase64(file) {
 }
 
 export default processImageWithPrompt;
+export const RenderJson = ({ data }) => {
+  let cleanedData;
+
+  try {
+    // Remove unwanted characters and fix formatting
+    const cleanedString = data
+      .replace(/```json/g, '') // Remove markdown JSON block start
+      .replace(/```/g, '') // Remove markdown block end
+      .replace(/^json\s*/i, '') // Remove "json" if present at the start
+      .replace(/,\s*}/g, '}') // Remove trailing commas in objects
+      .replace(/,\s*\]/g, ']') // Remove trailing commas in arrays
+      .trim(); // Remove extra spaces
+
+    cleanedData = JSON.parse(cleanedString); // Parse the cleaned JSON
+  } catch (error) {
+    console.error("Invalid JSON:", error);
+    return <p className="text-red-500">Invalid JSON data</p>;
+  }
+
+  if (typeof cleanedData === "string") {
+    return <p className="text-lg font-medium text-gray-800">{cleanedData}</p>;
+  }
+
+  if (Array.isArray(cleanedData)) {
+    return (
+      <div className="space-y-2 p-4 bg-white border rounded-lg shadow-md">
+        {cleanedData.map((item, index) => (
+          <p key={index} className="text-lg text-gray-900">{item}</p>
+        ))}
+      </div>
+    );
+  }
+
+  if (typeof cleanedData === "object" && cleanedData !== null) {
+    return (
+      <div className="space-y-2 p-4 bg-gray-100 rounded-lg shadow">
+        {Object.values(cleanedData).flat().map((value, index) => (
+          <p key={index} className="text-lg text-gray-900">{value}</p>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+};
