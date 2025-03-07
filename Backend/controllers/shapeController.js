@@ -49,7 +49,7 @@ exports.processPageWithShapes = async (req, res) => {
       out_dir: outputDir,
       out_prefix: "output_page",
       page: pageNumber,
-      scale: 300,
+      scale: 1200,
     };
     await poppler.convert(modifiedPdfPath, opts);
 

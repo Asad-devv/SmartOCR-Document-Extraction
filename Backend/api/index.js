@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const authRoutes = require('../routes/auth.js');
 const shapeRoutes = require('../routes/shapes.js');
 const pdfRoutes = require("../routes/pdf.js")
-const templateRoutes = require('../routes/template.js');  // Path to your authRoutes
+const templateRoutes = require('../routes/template.js'); 
 const cors = require('cors'); 
 
 const app = express();
