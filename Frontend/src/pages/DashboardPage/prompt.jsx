@@ -1,4 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as XLSX from "xlsx";
+
+
+
 async function processImageWithPrompt(imageFile, prompt) {
   if (!imageFile || !prompt) {
     throw new Error('Both image and prompt are required.');
@@ -49,44 +53,51 @@ export const RenderJson = ({ data }) => {
   let cleanedData;
 
   try {
-    // Remove unwanted characters and fix formatting
     const cleanedString = data
-      .replace(/```json/g, '') // Remove markdown JSON block start
-      .replace(/```/g, '') // Remove markdown block end
-      .replace(/^json\s*/i, '') // Remove "json" if present at the start
-      .replace(/,\s*}/g, '}') // Remove trailing commas in objects
-      .replace(/,\s*\]/g, ']') // Remove trailing commas in arrays
-      .trim(); // Remove extra spaces
+      ?.replace(/```json/g, '') // Remove markdown JSON block start
+      ?.replace(/```/g, '') // Remove markdown block end
+      ?.replace(/^json\s*/i, '') // Remove "json" if present at the start
+      ?.replace(/,\s*}/g, '}') // Remove trailing commas in objects
+      ?.replace(/,\s*\]/g, ']') // Remove trailing commas in arrays
+      ?.trim(); // Remove extra spaces
 
-    cleanedData = JSON.parse(cleanedString); // Parse the cleaned JSON
+    cleanedData = JSON.parse(cleanedString);
+    console.log(cleanedData);
   } catch (error) {
     console.error("Invalid JSON:", error);
-    return <p className="text-red-500">Invalid JSON data</p>;
+    return <p className="text-red-500">Loading...</p>;
   }
 
-  if (typeof cleanedData === "string") {
-    return <p className="text-lg font-medium text-gray-800">{cleanedData}</p>;
-  }
-
-  if (Array.isArray(cleanedData)) {
-    return (
-      <div className="space-y-2 p-4 bg-white border rounded-lg shadow-md">
-        {cleanedData.map((item, index) => (
-          <p key={index} className="text-lg text-gray-900">{item}</p>
-        ))}
-      </div>
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      Array.isArray(cleanedData) ? cleanedData : [cleanedData]
     );
-  }
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+    XLSX.writeFile(workbook, "exported_data.xlsx");
+  };
 
-  if (typeof cleanedData === "object" && cleanedData !== null) {
-    return (
-      <div className="space-y-2 p-4 bg-gray-100 rounded-lg shadow">
-        {Object.values(cleanedData).flat().map((value, index) => (
-          <p key={index} className="text-lg text-gray-900">{value}</p>
-        ))}
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <div className="space-y-2 p-4 bg-white border rounded-lg shadow-md">
+      <button
+        onClick={exportToExcel}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+      >
+        Download Excel
+      </button>
+      {typeof cleanedData === "string" ? (
+        <p className="text-lg font-medium text-gray-800">{cleanedData}</p>
+      ) : Array.isArray(cleanedData) ? (
+        cleanedData.map((item, index) => (
+          <p key={index} className="text-lg text-gray-900">{JSON.stringify(item)}</p>
+        ))
+      ) : typeof cleanedData === "object" ? (
+        Object.entries(cleanedData).map(([key, value], index) => (
+          <p key={index} className="text-sm text-gray-900">
+            <strong>{key}:</strong> {JSON.stringify(value)}
+          </p>
+        ))
+      ) : null}
+    </div>
+  );
 };

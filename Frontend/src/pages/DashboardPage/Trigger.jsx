@@ -9,7 +9,7 @@ import { RenderJson } from './prompt';
 
 const Trigger = () => {
   const [dragActive, setDragActive] = useState(false);
-  const [jsonResponse, setJsonResponse] = useState(null);
+  const [jsonResponse, setJsonResponse] = useState();
 
   const [files, setFiles] = useState([]);
   const [pdfFile, setPdfFile] = useState(null);
@@ -20,8 +20,8 @@ const Trigger = () => {
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
   const [isDrawingEnabled, setIsDrawingEnabled] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1); 
-  const [totalPages, setTotalPages] = useState(0); 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef(null);
   const pdfContainerRef = useRef(null);
   const [pdfId, setPdfId] = useState(null);
@@ -33,7 +33,7 @@ const Trigger = () => {
   const [pdfs, setPdfs] = useState([]);
   const [pdfDimensions, setPdfDimensions] = useState({ width: 612, height: 792 });
   const pdfPageRef = useRef(null);
-  const pdfDocRef = useRef(null); 
+  const pdfDocRef = useRef(null);
   const baseCanvasRef = useRef(null);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ const Trigger = () => {
     const data = await response.json();
     setTemplates(data);
   };
-  
+
   useEffect(() => {
     const fetchPdfs = async () => {
       try {
@@ -67,7 +67,7 @@ const Trigger = () => {
     fetchPdfs();
     refreshTemplates();
   }, [pdfId]); // Refetch when pdfId changes
-  
+
   const saveTemplate = async (e) => {
     e.preventDefault();
     if (!shapes.length) return;
@@ -102,7 +102,7 @@ const Trigger = () => {
   useEffect(() => {
     const renderBasePdf = async () => {
       if (!pdfFile || !baseCanvasRef.current) return;
-  
+
       const response = await fetch(pdfFile);
       const pdfData = await response.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
@@ -110,23 +110,23 @@ const Trigger = () => {
       setTotalPages(pdf.numPages);
       const page = await pdf.getPage(currentPage);
       pdfPageRef.current = page;
-  
+
       const viewport = page.getViewport({ scale: 1.0 });
       const pdfWidth = viewport.width;
       const pdfHeight = viewport.height;
       setPdfDimensions({ width: pdfWidth, height: pdfHeight });
-  
+
       const containerWidth = pdfContainerRef.current.offsetWidth - 8 || 800;
       const scale = containerWidth / pdfWidth;
       setPdfScale(scale);
-  
+
       const baseCanvas = baseCanvasRef.current;
       baseCanvas.width = pdfWidth * scale;
       baseCanvas.height = pdfHeight * scale;
       const baseContext = baseCanvas.getContext('2d');
       const scaledViewport = page.getViewport({ scale });
-  
-     
+
+
       baseContext.fillStyle = '#e5e7eb';
       baseContext.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
       baseContext.shadowColor = 'rgba(0, 0, 0, 0.2)';
@@ -138,20 +138,20 @@ const Trigger = () => {
       baseContext.shadowBlur = 0;
       baseContext.shadowOffsetX = 0;
       baseContext.shadowOffsetY = 0;
-  
+
       await page.render({ canvasContext: baseContext, viewport: scaledViewport }).promise;
-  
-     
+
+
       const overlayCanvas = canvasRef.current;
       overlayCanvas.width = pdfWidth * scale;
       overlayCanvas.height = pdfHeight * scale;
     };
-  
+
     renderBasePdf();
   }, [pdfFile, currentPage]);
   useEffect(() => {
     if (!canvasRef.current || !pdfScale) return;
-  
+
     const overlayCanvas = canvasRef.current;
     const overlayContext = overlayCanvas.getContext('2d');
     drawShapes(overlayContext, pdfScale);
@@ -161,7 +161,7 @@ const Trigger = () => {
 
 
   const drawShapes = (context, scale) => {
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height); 
+    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
     shapes.forEach(shape => {
       if (shape.page === currentPage - 1 && shape.type === 'rectangle') {
         context.strokeStyle = 'red';
@@ -181,27 +181,27 @@ const Trigger = () => {
       console.error("No PDF file selected");
       return;
     }
-  
+
     const response = await fetch(pdfFile);
     const pdfBlob = await response.blob();
     if (!pdfBlob || pdfBlob.size === 0) {
       console.error("Invalid or empty PDF blob");
       return;
     }
-  
+
     const filteredShapes = shapes.filter((shape) => shape.page === currentPage - 1);
     if (!filteredShapes.length || !currentPage || currentPage < 1) {
       console.error("Invalid page number or no shapes to process");
       return;
     }
-  
+
     console.log("Shapes before sending:", filteredShapes); // Debug log
-  
+
     const formData = new FormData();
     formData.append("pdf", pdfBlob, "temp.pdf");
     formData.append("pageNumber", currentPage);
     formData.append("shapes", JSON.stringify(filteredShapes));
-  
+
     try {
       const processResponse = await fetch("http://localhost:4000/api/shape/process-page", {
         method: "POST",
@@ -222,9 +222,11 @@ const Trigger = () => {
         pageNumber: currentPage,
         shapes: filteredShapes,
       });
-        const res=  await processImageWithPrompt(imageBlob," extract text in this image that are the in the red squares/rectangle only extract from red color shapes nothing else and return json response, only return json nothing else and also dont include anything extra that is not in the image")
-        setJsonResponse(res)
-      } catch (error) {
+      const res = await processImageWithPrompt(imageBlob, ` extract text in this image that are the in the red squares/rectangle only extract from red color shapes nothing else and I dont need rectangle response return 
+          json response, only return json nothing else and also dont include anything extra that is not in the image give strict response
+           format {"box1":"","box2":"",//other boxes data } and for new lines just separate by space no symbbole`)
+      res && setJsonResponse(res)
+    } catch (error) {
       console.error("Error processing page:", error);
       alert("Error processing page: " + error.message);
     }
@@ -254,14 +256,14 @@ const Trigger = () => {
 
   const applyTemplate = async (templateId) => {
     if (!pdfFile || !templateId) return;
-  
+
     const response = await fetch(pdfFile);
     const pdfBlob = await response.blob();
     const formData = new FormData();
     formData.append("pdf", pdfBlob, "temp.pdf");
     formData.append("templateId", templateId);
     formData.append("pageNumber", currentPage);
-  
+
     try {
       const applyResponse = await fetch("http://localhost:4000/api/template/apply", {
         method: "POST",
@@ -273,10 +275,10 @@ const Trigger = () => {
         alert("Failed to apply template: " + errorText);
         return;
       }
-  
+
       const data = await applyResponse.json();
       console.log("Template response:", data); // Debug log
-  
+
       const template = data.template || {};
       const appliedShapes = (template.shapes || []).map((shape) => ({
         id: uuidv4(),
@@ -346,11 +348,11 @@ const Trigger = () => {
       width: x - prev.x,
       height: y - prev.y,
     }));
-    
+
     const overlayContext = canvasRef.current.getContext('2d');
     drawShapes(overlayContext, pdfScale);
   };
-  
+
   const handleMouseUp = () => {
     if (!isDrawing || !newShape) return;
     const updatedShapes = [...shapes, newShape];
@@ -361,7 +363,7 @@ const Trigger = () => {
     }));
     setIsDrawing(false);
     setNewShape(null);
-   
+
   };
   const handlePageChange = (e) => {
     const pageNum = parseInt(e.target.value);
@@ -444,14 +446,14 @@ const Trigger = () => {
           Process Page
         </motion.button>
         <select
-      onChange={e => applyTemplate(e.target.value)}
-      className="bg-blue-500 text-white p-2 rounded border-none outline-none"
-    >
-      <option value="">Apply Template</option>
-      {templates.map(template => (
-        <option key={template._id} value={template._id}>{template.templateName}</option>
-      ))}
-    </select>
+          onChange={e => applyTemplate(e.target.value)}
+          className="bg-blue-500 text-white p-2 rounded border-none outline-none"
+        >
+          <option value="">Apply Template</option>
+          {templates.map(template => (
+            <option key={template._id} value={template._id}>{template.templateName}</option>
+          ))}
+        </select>
         <div className="relative">
           <select
             value={currentPage}
@@ -587,22 +589,24 @@ const Trigger = () => {
           animate={{ opacity: 1 }}
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
         >
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">Preview Image</h2>
+
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl mx-4 shadow-2xl border border-gray-200/30"
+            className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full flex flex-col  max-w-4xl mx-4 shadow-2xl border border-gray-200/30"
           >
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Preview Image</h2>
-            <img src={previewImage} alt="Preview of processed page" className="max-w-full max-h-[70vh] object-contain" />
-            <RenderJson data={jsonResponse}/>
-            
+            <div className='flex justify-betweeen gap-4 items-center'>
+            <img src={previewImage} alt="Preview of processed page" className=" rounded shadow max-w-full max-h-[70vh] object-contain" />
+            <RenderJson data={jsonResponse} />
+            </div>
             <div className="flex justify-end mt-4">
-            <motion.button
-  onClick={handleClosePreview}
-  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
->
-  Close
-</motion.button>
+              <motion.button
+                onClick={handleClosePreview}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
+              >
+                Close
+              </motion.button>
             </div>
           </motion.div>
         </motion.div>

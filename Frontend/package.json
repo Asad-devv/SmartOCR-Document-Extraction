@@ -30,6 +30,7 @@
     "react-pdf-highlighter": "^8.0.0-rc.0",
     "react-router-dom": "^7.1.5",
     "uuid": "^11.0.5",
+    "xlsx": "^0.18.5",
     "yup": "^1.6.1"
   },
   "devDependencies": {
