@@ -1,17 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileText, CheckCircle, X, Shapes } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
+import { Upload, Shapes } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import processImageWithPrompt from './prompt';
 import { RenderJson } from './prompt';
+import { initializePdfjs } from './TriggerUtils/initializePdfjs';
+import { refreshTemplates, saveTemplate, applyTemplate } from './TriggerUtils/templateUtils';
+import { renderBasePdf } from './TriggerUtils/pdfRendering';
+import { drawShapes, setupShapeDrawing } from './TriggerUtils/shapeDrawing';
+import { processAllPdfs, handleClosePreview } from './TriggerUtils/pdfProcessing';
+import { handleFileChange, handleDrop, handleDrag } from './TriggerUtils/fileHandling';
+import { toggleDrawing, handleMouseDown, handleMouseMove, handleMouseUp, applyShapesToAll } from './TriggerUtils/drawingControls';
+import { handlePageChange } from './TriggerUtils/pageControls';
 
 const Trigger = () => {
   const [dragActive, setDragActive] = useState(false);
   const [jsonResponses, setJsonResponses] = useState({});
   const [pdfFiles, setPdfFiles] = useState([]);
   const [selectedPdfId, setSelectedPdfId] = useState(null);
-  const [shapes, setShapes] = useState([]); 
   const [isDrawing, setIsDrawing] = useState(false);
   const [newShape, setNewShape] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,315 +28,51 @@ const Trigger = () => {
   const canvasRef = useRef(null);
   const pdfContainerRef = useRef(null);
   const [pdfScale, setPdfScale] = useState(1.0);
-  const [previewImages, setPreviewImages] = useState([]); // Array of preview images
+  const [previewImages, setPreviewImages] = useState([]);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [pdfDimensions, setPdfDimensions] = useState({ width: 612, height: 792 });
   const baseCanvasRef = useRef(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    initializePdfjs();
   }, []);
 
-  const refreshTemplates = async () => {
-    const response = await fetch('http://localhost:4000/api/template/get');
-    const data = await response.json();
-    setTemplates(data);
-  };
-
   useEffect(() => {
-    refreshTemplates();
+    refreshTemplates(setTemplates);
   }, []);
 
-  const saveTemplate = async (e) => {
-    e.preventDefault();
-    if (!shapes.length) return;
-
-    const shapesToSave = shapes.map((shape) => ({
-      type: shape.type,
-      coords: { x: shape.x, y: shape.y, width: shape.width, height: shape.height },
-    }));
-
-    try {
-      const response = await fetch("http://localhost:4000/api/template/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          templateName,
-          description: templateDescription,
-          pageNumber: currentPage,
-          shapes: shapesToSave,
-        }),
-      });
-      if (response.ok) {
-        refreshTemplates();
-        setIsModalOpen(false);
-        setTemplateName("");
-        setTemplateDescription("");
-      }
-    } catch (error) {
-      console.error("Error saving template:", error);
-    }
-  };
-
+  // Render base PDF only when selectedPdfId or currentPage changes
   useEffect(() => {
-    if (!selectedPdfId || !pdfFiles.length) return;
-    const selectedPdf = pdfFiles.find(pdf => pdf.id === selectedPdfId);
-    if (!selectedPdf) return;
+    renderBasePdf(
+      selectedPdfId,
+      pdfFiles,
+      currentPage,
+      pdfContainerRef,
+      baseCanvasRef,
+      canvasRef,
+      setTotalPages,
+      setPdfDimensions,
+      setPdfScale
+    );
+  }, [selectedPdfId, currentPage]); // Removed pdfFiles from dependencies to prevent refresh on shape update
 
-    const renderBasePdf = async () => {
-      const response = await fetch(selectedPdf.url);
-      const pdfData = await response.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-      setTotalPages(pdf.numPages);
-      const page = await pdf.getPage(currentPage);
-
-      const viewport = page.getViewport({ scale: 1.0 });
-      const pdfWidth = viewport.width;
-      const pdfHeight = viewport.height;
-      setPdfDimensions({ width: pdfWidth, height: pdfHeight });
-
-      const containerWidth = pdfContainerRef.current.offsetWidth - 8 || 800;
-      const scale = containerWidth / pdfWidth;
-      setPdfScale(scale);
-
-      const baseCanvas = baseCanvasRef.current;
-      baseCanvas.width = pdfWidth * scale;
-      baseCanvas.height = pdfHeight * scale;
-      const baseContext = baseCanvas.getContext('2d');
-      const scaledViewport = page.getViewport({ scale });
-
-      baseContext.fillStyle = '#e5e7eb';
-      baseContext.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
-      baseContext.shadowColor = 'rgba(0, 0, 0, 0.2)';
-      baseContext.shadowBlur = 10;
-      baseContext.shadowOffsetX = 2;
-      baseContext.shadowOffsetY = 2;
-      baseContext.fillStyle = '#ffffff';
-      baseContext.fillRect(4, 4, baseCanvas.width - 8, baseCanvas.height - 8);
-      baseContext.shadowBlur = 0;
-      baseContext.shadowOffsetX = 0;
-      baseContext.shadowOffsetY = 0;
-
-      await page.render({ canvasContext: baseContext, viewport: scaledViewport }).promise;
-
-      const overlayCanvas = canvasRef.current;
-      overlayCanvas.width = pdfWidth * scale;
-      overlayCanvas.height = pdfHeight * scale;
-    };
-
-    renderBasePdf();
-  }, [selectedPdfId, currentPage, pdfFiles]);
-
+  // Redraw shapes whenever pdfFiles, selectedPdfId, newShape, or pdfScale changes
   useEffect(() => {
-    if (!canvasRef.current || !pdfScale) return;
+    const selectedPdf = pdfFiles.find((pdf) => pdf.id === selectedPdfId);
+    const shapes = selectedPdf ? selectedPdf.shapes || [] : [];
+    setupShapeDrawing(canvasRef, pdfScale, shapes, newShape, currentPage);
+  }, [pdfFiles, selectedPdfId, newShape, pdfScale]);
 
-    const overlayCanvas = canvasRef.current;
-    const overlayContext = overlayCanvas.getContext('2d');
-    drawShapes(overlayContext, pdfScale);
-  }, [shapes, newShape, pdfScale]);
-
-  const drawShapes = (context, scale) => {
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-    shapes.forEach(shape => {
-      if (shape.page === currentPage - 1 && shape.type === 'rectangle') {
-        context.strokeStyle = 'red';
-        context.lineWidth = 2 / scale;
-        context.strokeRect(shape.x * scale, shape.y * scale, shape.width * scale, shape.height * scale);
-      }
-    });
-    if (newShape && newShape.type === 'rectangle') {
-      context.strokeStyle = 'red';
-      context.lineWidth = 2 / scale;
-      context.strokeRect(newShape.x * scale, newShape.y * scale, newShape.width * scale, newShape.height * scale);
-    }
-  };
-
-  const processAllPdfs = async () => {
-    if (!pdfFiles.length) {
-      alert("No PDFs uploaded");
-      return;
-    }
-
-    const filteredShapes = shapes.filter((shape) => shape.page === currentPage - 1);
-    if (!filteredShapes.length) {
-      alert("No shapes defined for the current page");
-      return;
-    }
-
-    const newPreviewImages = [];
-    const newJsonResponses = {};
-
-    for (const pdf of pdfFiles) {
-      const response = await fetch(pdf.url);
-      const pdfBlob = await response.blob();
-
-      const formData = new FormData();
-      formData.append("pdf", pdfBlob, `${pdf.id}.pdf`);
-      formData.append("pageNumber", currentPage);
-      formData.append("shapes", JSON.stringify(filteredShapes));
-
-      try {
-        const processResponse = await fetch("http://localhost:4000/api/shape/process-page", {
-          method: "POST",
-          body: formData,
-        });
-        if (!processResponse.ok) {
-          const errorText = await processResponse.text();
-          console.error(`Failed to process ${pdf.id}:`, errorText);
-          continue;
-        }
-        const imageBlob = await processResponse.blob();
-        const imageUrl = URL.createObjectURL(imageBlob);
-        newPreviewImages.push({ pdfId: pdf.id, url: imageUrl });
-
-        const res = await processImageWithPrompt(
-          imageBlob,
-          `extract text in this image that are in the red squares/rectangles only, extract from red color shapes nothing else and I dont need rectangle response return json response, only return json nothing else and also dont include anything extra that is not in the image give strict response format {"box1":"","box2":"",//other boxes data } and for new lines just separate by space no symbol`
-        );
-        newJsonResponses[pdf.id] = res;
-      } catch (error) {
-        console.error(`Error processing ${pdf.id}:`, error);
-      }
-    }
-
-    setPreviewImages(newPreviewImages);
-    setJsonResponses(newJsonResponses);
-    setIsPreviewModalOpen(true);
-  };
-
-  const handleClosePreview = () => {
-    previewImages.forEach(img => URL.revokeObjectURL(img.url));
-    setIsPreviewModalOpen(false);
-    setPreviewImages([]);
-  };
-
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files).filter(file => file.type === "application/pdf");
-    if (!files.length) return;
-
-    const newPdfFiles = files.map(file => ({
-      id: uuidv4(),
-      url: URL.createObjectURL(file),
-      file,
-    }));
-    setPdfFiles(newPdfFiles);
-    setSelectedPdfId(newPdfFiles[0].id); // Select the first PDF by default
-    setShapes([]);
-  };
-
-  const applyTemplate = async (templateId) => {
-    if (!pdfFiles.length || !templateId) return;
-
-    const response = await fetch("http://localhost:4000/api/template/apply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ templateId, pageNumber: currentPage }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Failed to apply template:", errorText);
-      return;
-    }
-
-    const data = await response.json();
-    const template = data.template || {};
-    const appliedShapes = (template.shapes || []).map((shape) => ({
-      id: uuidv4(),
-      type: shape.type,
-      x: shape.coords.x,
-      y: shape.coords.y,
-      width: shape.coords.width,
-      height: shape.coords.height,
-      page: currentPage - 1,
-    }));
-    setShapes(appliedShapes);
-  };
-
-  const applyShapesToAll = () => {
-    if (!shapes.length) {
-      alert("No shapes to apply");
-      return;
-    }
-    // Shapes are already shared across PDFs via state; just ensure UI reflects this
-    pdfFiles.forEach(pdf => {
-      // No need to store per PDF; shapes are global and applied to currentPage
-    });
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    handleFileChange({ target: { files: e.dataTransfer.files } });
-  };
-
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
-    else if (e.type === 'dragleave') setDragActive(false);
-  };
-
-  const toggleDrawing = () => {
-    setIsDrawingEnabled(!isDrawingEnabled);
-  };
-
-  const handleMouseDown = (e) => {
-    if (!isDrawingEnabled || !canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / pdfScale;
-    const y = (e.clientY - rect.top) / pdfScale;
-    setNewShape({
-      id: Date.now(),
-      type: 'rectangle',
-      x,
-      y,
-      width: 0,
-      height: 0,
-      page: currentPage - 1,
-    });
-    setIsDrawing(true);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDrawing || !canvasRef.current || !newShape) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / pdfScale;
-    const y = (e.clientY - rect.top) / pdfScale;
-    setNewShape((prev) => ({
-      ...prev,
-      width: x - prev.x,
-      height: y - prev.y,
-    }));
-
-    const overlayContext = canvasRef.current.getContext('2d');
-    drawShapes(overlayContext, pdfScale);
-  };
-
-  const handleMouseUp = () => {
-    if (!isDrawing || !newShape) return;
-    const updatedShapes = [...shapes, newShape];
-    setShapes(updatedShapes);
-    setIsDrawing(false);
-    setNewShape(null);
-  };
-
-  const handlePageChange = (e) => {
-    const pageNum = parseInt(e.target.value);
-    if (pageNum >= 1 && pageNum <= totalPages) {
-      setCurrentPage(pageNum);
-    }
-  };
-
+  // JSX remains unchanged except for function calls
   return (
     <div className="max-w-5xl mx-auto p-6 bg-gray-100">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative">
         <input
           type="file"
           multiple
-          onChange={handleFileChange}
+          onChange={(e) => handleFileChange(e, setPdfFiles, setSelectedPdfId)}
           className="hidden"
           id="file-upload"
           accept=".pdf"
@@ -353,10 +94,10 @@ const Trigger = () => {
             ${dragActive ? 'border-green-500 bg-green-50/30' : 'border-gray-300 bg-white/30'}
             backdrop-blur-md transition-all duration-300 hover:border-green-500 hover:bg-green-50/30
           `}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
+          onDragEnter={(e) => handleDrag(e, setDragActive)}
+          onDragLeave={(e) => handleDrag(e, setDragActive)}
+          onDragOver={(e) => handleDrag(e, setDragActive)}
+          onDrop={(e) => handleDrop(e, setDragActive, handleFileChange)}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
         >
@@ -374,7 +115,7 @@ const Trigger = () => {
 
       <div className="flex space-x-4 mt-4 sticky top-0 z-10 bg-white p-4 rounded-lg shadow-md w-full">
         <motion.button
-          onClick={toggleDrawing}
+          onClick={() => toggleDrawing(setIsDrawingEnabled)}
           className={`p-2 rounded flex items-center ${isDrawingEnabled ? 'bg-blue-700' : 'bg-blue-500'} text-white`}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -390,7 +131,7 @@ const Trigger = () => {
           Save Template
         </motion.button>
         <motion.button
-          onClick={applyShapesToAll}
+          onClick={() => applyShapesToAll(pdfFiles, selectedPdfId, setPdfFiles)}
           className="bg-yellow-500 text-white p-2 rounded flex items-center"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -398,32 +139,61 @@ const Trigger = () => {
           Apply to All PDFs
         </motion.button>
         <motion.button
-          onClick={processAllPdfs}
+          onClick={() => processAllPdfs(
+            pdfFiles,
+            currentPage,
+            setIsProcessing,
+            setPreviewImages,
+            setJsonResponses,
+            setIsPreviewModalOpen
+          )}
           className="bg-purple-500 text-white p-2 rounded flex items-center"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          disabled={isProcessing}
         >
-          Process All PDFs
+          {isProcessing ? 'Processing...' : 'Process All PDFs'}
         </motion.button>
+        {isProcessing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-200/30"
+            >
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">Processing</h2>
+              <p className="text-gray-600">Please wait while we process your files...</p>
+              <div className="mt-4 flex justify-center">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-8 h-8 border-4 border-t-purple-500 border-gray-200 rounded-full"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
         <select
-          onChange={e => applyTemplate(e.target.value)}
+          onChange={(e) => applyTemplate(e.target.value, pdfFiles, currentPage, setPdfFiles, uuidv4)}
           className="bg-blue-500 text-white p-2 rounded border-none outline-none"
         >
           <option value="">Apply Template</option>
-          {templates.map(template => (
+          {templates.map((template) => (
             <option key={template._id} value={template._id}>{template.templateName}</option>
           ))}
         </select>
         <div className="relative">
           <select
             value={currentPage}
-            onChange={handlePageChange}
+            onChange={(e) => handlePageChange(e, totalPages, setCurrentPage)}
             className="bg-green-500 text-white p-2 rounded border-none outline-none"
           >
-            {Array.from({ length: totalPages || 1 }, (_, i) => i + 1).map(page => (
-              <option key={page} value={page}>
-                Page {page}
-              </option>
+            {Array.from({ length: totalPages || 1 }, (_, i) => i + 1).map((page) => (
+              <option key={page} value={page}>Page {page}</option>
             ))}
           </select>
           <span className="absolute -top-6 left-0 text-normal text-black font-thin">
@@ -436,7 +206,7 @@ const Trigger = () => {
         <div className="col-span-1">
           <h3 className="text-lg font-semibold mb-2">Uploaded PDFs</h3>
           <ul className="space-y-2">
-            {pdfFiles.map(pdf => (
+            {pdfFiles.map((pdf) => (
               <li
                 key={pdf.id}
                 onClick={() => setSelectedPdfId(pdf.id)}
@@ -454,9 +224,35 @@ const Trigger = () => {
                 <canvas ref={baseCanvasRef} style={{ position: 'absolute', top: 0, left: 0 }} />
                 <canvas
                   ref={canvasRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
+                  onMouseDown={(e) => handleMouseDown(
+                    e,
+                    isDrawingEnabled,
+                    canvasRef,
+                    pdfScale,
+                    currentPage,
+                    setNewShape,
+                    setIsDrawing
+                  )}
+                  onMouseMove={(e) => handleMouseMove(
+                    e,
+                    isDrawing,
+                    canvasRef,
+                    pdfScale,
+                    newShape,
+                    setNewShape,
+                    drawShapes,
+                    pdfFiles,
+                    selectedPdfId
+                  )}
+                  onMouseUp={() => handleMouseUp(
+                    isDrawing,
+                    newShape,
+                    pdfFiles,
+                    selectedPdfId,
+                    setPdfFiles,
+                    setIsDrawing,
+                    setNewShape
+                  )}
                   style={{ cursor: isDrawingEnabled ? 'crosshair' : 'default', position: 'absolute', top: 0, left: 0 }}
                 />
               </div>
@@ -477,13 +273,23 @@ const Trigger = () => {
             className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-200/30"
           >
             <h2 className="text-xl font-semibold mb-4 text-gray-800">Save Template</h2>
-            <form onSubmit={saveTemplate} className="space-y-4">
+            <form onSubmit={(e) => saveTemplate(
+              e,
+              pdfFiles.find((pdf) => pdf.id === selectedPdfId)?.shapes || [],
+              templateName,
+              templateDescription,
+              currentPage,
+              setIsModalOpen,
+              setTemplateName,
+              setTemplateDescription,
+              refreshTemplates
+            )} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                 <input
                   type="text"
                   value={templateName}
-                  onChange={e => setTemplateName(e.target.value)}
+                  onChange={(e) => setTemplateName(e.target.value)}
                   className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-themeBlue focus:border-themeBlue"
                   placeholder="Enter template name"
                 />
@@ -492,7 +298,7 @@ const Trigger = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
                   value={templateDescription}
-                  onChange={e => setTemplateDescription(e.target.value)}
+                  onChange={(e) => setTemplateDescription(e.target.value)}
                   rows="4"
                   className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-themeBlue focus:border-themeBlue"
                   placeholder="Enter template description"
@@ -530,9 +336,9 @@ const Trigger = () => {
             className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl mx-4 shadow-2xl border border-gray-200/30 overflow-y-auto max-h-[90vh]"
           >
             <h2 className="text-xl font-semibold mb-4 text-gray-800">Preview Images</h2>
-            {previewImages.map((img, index) => (
+            {previewImages.map((img) => (
               <div key={img.pdfId} className="mb-6">
-                <h3 className="text-lg font-medium">{pdfFiles.find(pdf => pdf.id === img.pdfId)?.file.name}</h3>
+                <h3 className="text-lg font-medium">{pdfFiles.find((pdf) => pdf.id === img.pdfId)?.file.name}</h3>
                 <div className="flex justify-between gap-4 items-start">
                   <img src={img.url} alt={`Preview of ${img.pdfId}`} className="rounded shadow max-w-full max-h-[50vh] object-contain" />
                   <RenderJson data={jsonResponses[img.pdfId]} />
@@ -541,7 +347,7 @@ const Trigger = () => {
             ))}
             <div className="flex justify-end mt-4">
               <motion.button
-                onClick={handleClosePreview}
+                onClick={() => handleClosePreview(previewImages, setIsPreviewModalOpen, setPreviewImages)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
               >
                 Close

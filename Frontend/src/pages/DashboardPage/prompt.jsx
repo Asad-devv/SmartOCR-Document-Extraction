@@ -54,12 +54,12 @@ export const RenderJson = ({ data }) => {
 
   try {
     const cleanedString = data
-      ?.replace(/```json/g, '') // Remove markdown JSON block start
-      ?.replace(/```/g, '') // Remove markdown block end
-      ?.replace(/^json\s*/i, '') // Remove "json" if present at the start
-      ?.replace(/,\s*}/g, '}') // Remove trailing commas in objects
-      ?.replace(/,\s*\]/g, ']') // Remove trailing commas in arrays
-      ?.trim(); // Remove extra spaces
+      ?.replace(/```json/g, '') 
+      ?.replace(/```/g, '') 
+      ?.replace(/^json\s*/i, '') 
+      ?.replace(/,\s*}/g, '}') 
+      ?.replace(/,\s*\]/g, ']')
+      ?.trim(); 
 
     cleanedData = JSON.parse(cleanedString);
     console.log(cleanedData);
@@ -69,13 +69,45 @@ export const RenderJson = ({ data }) => {
   }
 
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(
-      Array.isArray(cleanedData) ? cleanedData : [cleanedData]
-    );
+    let cleanedArray = [];
+  
+    if (Array.isArray(cleanedData)) {
+      if (cleanedData.every(item => typeof item === "object" && !Array.isArray(item))) {
+        cleanedArray = cleanedData; 
+      } else if (cleanedData.every(item => typeof item === "string")) {
+       
+        cleanedArray = [{ Text: cleanedData.join(" ") }];
+      } else {
+        cleanedArray = cleanedData.map(row => {
+          if (Array.isArray(row)) {
+            return row.reduce((acc, obj) => ({ ...acc, ...obj }), {});
+          }
+          return row; 
+        });
+      }
+    } else if (typeof cleanedData === "object") {
+      cleanedArray = [cleanedData]; 
+    } else if (typeof cleanedData === "string") {
+     
+      cleanedArray = [{ Text: cleanedData }];
+    } else {
+      console.error("Unexpected data format:", cleanedData);
+      return;
+    }
+  
+    if (cleanedArray.length === 0) {
+      console.error("No data to export");
+      return;
+    }
+  
+    
+    const worksheet = XLSX.utils.json_to_sheet(cleanedArray);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-    XLSX.writeFile(workbook, "exported_data.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Extracted Data");
+    XLSX.writeFile(workbook, "extracted_data.xlsx");
   };
+  
+  
 
   return (
     <div className="space-y-2 p-4 bg-white border rounded-lg shadow-md">
