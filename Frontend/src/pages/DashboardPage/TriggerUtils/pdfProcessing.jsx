@@ -49,27 +49,7 @@ export const processAllPdfs = async (
       const res = await processImageWithPrompt(
         imageBlob,
         `Extract text from the red rectangles in **structured JSON format**.
-        - If the content is tabular, return an array where each row is a JSON object containing all columns.
-        - If the content is plain text (sentences, paragraphs), return a **single JSON string**, NOT an array of individual characters.
-        Example outputs:
-        
-        1️⃣ **For Tables:**
-        [
-          {
-            "No": "1",
-            "Qty": "2",
-            "Description": "D700B Avenger D700B Extension Holder for Oval Reflector",
-            "Country of Origin": "Italy",
-            "HS Code": "90069900",
-            "Unit Price": "144.42",
-            "TOTAL": "288.84"
-          }
-        ]
-        
-        2️⃣ **For Plain Text:**
-        "This is a full sentence. Keep it as one string, NOT an array of characters."
-      
-        Ensure JSON is strictly formatted with no extra data.`
+        `
       );
       newJsonResponses[pdf.id] = res;
     }

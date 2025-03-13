@@ -1,55 +1,85 @@
-import { useState } from 'react';
-import { LuLoader } from 'react-icons/lu';
+// LOADTEMPLATE.JSX
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import Analysis from './Analysis';
-import { LucideFileUp } from 'lucide-react';
-
+import { LucideFileUp, Shapes } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import * as pdfjsLib from 'pdfjs-dist';
+import { handleFileChange, handleDrop, handleDrag } from './TriggerUtils/fileHandling';
+import { toggleDrawing, handleMouseDown, handleMouseMove, handleMouseUp } from './TriggerUtils/drawingControls';
+import { renderBasePdf } from './TriggerUtils/pdfRendering';
+import { drawShapes, setupShapeDrawing } from './TriggerUtils/shapeDrawing';
+import { handlePageChange } from './TriggerUtils/pageControls';
 
 const Loadtemplate = () => {
-  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [dragActive, setDragActive] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadComplete, setUploadComplete] = useState(false)
+  const [pdfFiles, setPdfFiles] = useState([]);
+  const [selectedPdfId, setSelectedPdfId] = useState(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [newShape, setNewShape] = useState(null);
+  const [isDrawingEnabled, setIsDrawingEnabled] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pdfScale, setPdfScale] = useState(1.0);
+  const [pdfDimensions, setPdfDimensions] = useState({ width: 612, height: 792 });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const canvasRef = useRef(null);
+  const baseCanvasRef = useRef(null);
+  const pdfContainerRef = useRef(null);
 
-  const templates = [
-    { id: 1, name: 'Invoice Template' },
-    { id: 2, name: 'Receipt Template' },
-    { id: 3, name: 'Form Template' },
-    // Add more templates as needed
-  ];
+  useEffect(() => {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }, []);
 
-  const handleDrag = (e) => {
+  useEffect(() => {
+    renderBasePdf(
+      selectedPdfId,
+      pdfFiles,
+      currentPage,
+      pdfContainerRef,
+      baseCanvasRef,
+      canvasRef,
+      setTotalPages,
+      setPdfDimensions,
+      setPdfScale
+    );
+  }, [selectedPdfId, currentPage]);
+
+  useEffect(() => {
+    const selectedPdf = pdfFiles.find((pdf) => pdf.id === selectedPdfId);
+    const shapes = selectedPdf ? selectedPdf.shapes || [] : [];
+    setupShapeDrawing(canvasRef, pdfScale, shapes, newShape, currentPage);
+  }, [pdfFiles, selectedPdfId, newShape, pdfScale]);
+
+  const saveTemplate = async (e) => {
     e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
+    const selectedPdf = pdfFiles.find((pdf) => pdf.id === selectedPdfId);
+    if (!selectedPdf || !selectedPdf.shapes.length) return;
 
-  const handleFileUpload = () => {
-    setIsUploading(true);
-    // Simulate upload progress - replace with actual upload logic
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsUploading(false);
-        setUploadComplete(true)
+    const shapesToSave = selectedPdf.shapes.map((shape) => ({
+      type: shape.type,
+      coords: { x: shape.x, y: shape.y, width: shape.width, height: shape.height },
+    }));
+
+    try {
+      const response = await fetch("http://localhost:4000/api/template/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateName,
+          description: templateDescription,
+          pageNumber: currentPage,
+          shapes: shapesToSave,
+        }),
+      });
+      if (response.ok) {
+        setIsModalOpen(false);
+        setTemplateName("");
+        setTemplateDescription("");
       }
-    }, 500);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
+    } catch (error) {
+      console.error("Error saving template:", error);
     }
   };
 
@@ -57,129 +87,169 @@ const Loadtemplate = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen p-2 sm:p-4 lg:pt-0 pt-[27%] max-w-[90%] mx-auto"
+      className="max-w-5xl mx-auto p-6 bg-gray-100"
     >
-      <div className=" mx-auto relative">
-        {uploadComplete ? <Analysis /> :
+      <motion.div
+        className="mb-6 bg-green-500 text-white p-4 rounded-xl shadow-lg text-center"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        <label htmlFor="file-upload" className="cursor-pointer">
+          <span className="font-semibold">Upload PDFs</span>
+          <span className="text-green-100 ml-2">to Define Template</span>
+        </label>
+      </motion.div>
 
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="mb-8"
-            >
-              <label className="block text-lg font-medium text-gray-700 mb-3">
-                Select Template
-              </label>
-              <select
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-                className="w-full p-3 bg-white bg-opacity-20 backdrop-blur-lg rounded-xl border border-gray-200 focus:border-themeBlue focus:ring-2 focus:ring-themeBlue transition-all duration-300 outline-none shadow-lg"
-              >
-                <option value="">Select a template</option>
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name}
-                  </option>
-                ))}
-              </select>
-            </motion.div>
+      <motion.label
+        htmlFor="file-upload"
+        className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer
+          ${dragActive ? 'border-green-500 bg-green-50/30' : 'border-gray-300 bg-white/30'}
+          backdrop-blur-md transition-all duration-300 hover:border-green-500 hover:bg-green-50/30`}
+        onDragEnter={(e) => handleDrag(e, setDragActive)}
+        onDragLeave={(e) => handleDrag(e, setDragActive)}
+        onDragOver={(e) => handleDrag(e, setDragActive)}
+        onDrop={(e) => handleDrop(e, setDragActive, (e) => handleFileChange(e, setPdfFiles, setSelectedPdfId))}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+      >
+        <input
+          type="file"
+          multiple
+          onChange={(e) => handleFileChange(e, setPdfFiles, setSelectedPdfId)}
+          className="hidden"
+          id="file-upload"
+          accept=".pdf"
+        />
+        <motion.div
+          className="flex flex-col items-center justify-center pt-5 pb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <LucideFileUp className="w-12 h-12 mb-4 text-green-500" />
+          <p className="text-lg text-gray-600">or drag and drop PDFs here</p>
+        </motion.div>
+      </motion.label>
 
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className={`relative p-8 rounded-2xl transition-all duration-300
-            ${dragActive
-                  ? 'bg-themeBlue bg-opacity-10 border-2 border-themeBlue'
-                  : 'bg-white bg-opacity-20 border border-gray-200'} 
-            backdrop-blur-lg shadow-xl hover:shadow-2xl`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-            >
-              <div className="text-center">
-              
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                  Upload your file
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Drag and drop your file here, or click to select
-                </p>
-                <div className="flex flex-col items-center gap-3">
-                  <p className="text-sm text-gray-500">
-                    Supported formats: PDF, DOCX, DOC, PNG, JPG, TIFF, CSV, TXT
-                  </p>
-                  <motion.label
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="cursor-pointer"
-                  >
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.docx,.doc,.png,.jpg,.tiff,.csv,.txt"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleFileUpload(e.target.files[0]);
-                        }
-                      }}
-                    />
-                    <span className="inline-flex items-center gap-2 px-6 py-3 bg-themeBlue text-white rounded-xl hover:bg-opacity-90 transition-all duration-300 shadow-md hover:shadow-lg">
-                      <LucideFileUp className="h-5 w-5" />
-                      Choose File
-                    </span>
-                  </motion.label>
-                </div>
-              </div>
-
-              <motion.div
-                initial={{ opacity: 0, width: '0%' }}
-                animate={{ opacity: 1, width: '0%' }}
-                className="absolute bottom-0 left-0 h-1 bg-themeBlue rounded-full"
-              />
-            </motion.div>
-
-            {isUploading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50"
-              >
-                <div className="bg-white bg-opacity-90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4">
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
-                    Document Import and Preprocessing
-                  </h2>
-                  <p className="text-gray-600 text-center mb-6">
-                    We are currently importing and preprocessing your documents.
-                    This process should not take more than a minute.
-                  </p>
-                  <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
-                    <motion.div
-                      initial={{ width: '0%' }}
-                      animate={{ width: `${uploadProgress}%` }}
-                      className="absolute h-full bg-themeBlue rounded-full"
-                      transition={{ duration: 0.5 }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <span>Step 2/2 - Document Preprocessing</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="flex justify-center mt-4">
-                    <LuLoader className="w-6 h-6 text-themeBlue animate-spin" />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </>
-        }
-
-
+      <div className="flex space-x-4 mt-4 sticky top-0 z-10 bg-white p-4 rounded-lg shadow-md w-full">
+        <motion.button
+          onClick={() => toggleDrawing(setIsDrawingEnabled)}
+          className={`p-2 rounded flex items-center ${isDrawingEnabled ? 'bg-blue-700' : 'bg-blue-500'} text-white`}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <Shapes className="w-5 h-5 mr-2" /> {isDrawingEnabled ? 'Stop Drawing' : 'Draw Rectangle'}
+        </motion.button>
+        <motion.button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-green-500 text-white p-2 rounded flex items-center"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          Save Template
+        </motion.button>
+        <select
+          value={currentPage}
+          onChange={(e) => handlePageChange(e, totalPages, setCurrentPage)}
+          className="bg-green-500 text-white p-2 rounded border-none outline-none"
+        >
+          {Array.from({ length: totalPages || 1 }, (_, i) => i + 1).map((page) => (
+            <option key={page} value={page}>Page {page}</option>
+          ))}
+        </select>
       </div>
+
+      <div className="mt-6 grid grid-cols-4 gap-4">
+        <div className="col-span-1">
+          <h3 className="text-lg font-semibold mb-2">Uploaded PDFs</h3>
+          <ul className="space-y-2">
+            {pdfFiles.map((pdf) => (
+              <li
+                key={pdf.id}
+                onClick={() => setSelectedPdfId(pdf.id)}
+                className={`p-2 rounded cursor-pointer ${selectedPdfId === pdf.id ? 'bg-blue-100' : 'bg-white'} hover:bg-blue-50`}
+              >
+                {pdf.file.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="col-span-3">
+          {selectedPdfId && (
+            <div className="relative p-4 rounded-lg">
+              <div ref={pdfContainerRef} className="relative">
+                <canvas ref={baseCanvasRef} style={{ position: 'absolute', top: 0, left: 0 }} />
+                <canvas
+                  ref={canvasRef}
+                  onMouseDown={(e) =>
+                    handleMouseDown(e, isDrawingEnabled, canvasRef, pdfScale, currentPage, setNewShape, setIsDrawing)
+                  }
+                  onMouseMove={(e) =>
+                    handleMouseMove(e, isDrawing, canvasRef, pdfScale, newShape, setNewShape, drawShapes, pdfFiles, selectedPdfId)
+                  }
+                  onMouseUp={() =>
+                    handleMouseUp(isDrawing, newShape, pdfFiles, selectedPdfId, setPdfFiles, setIsDrawing, setNewShape)
+                  }
+                  style={{ cursor: isDrawingEnabled ? 'crosshair' : 'default', position: 'absolute', top: 0, left: 0 }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-200/30"
+          >
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Save Template</h2>
+            <form onSubmit={saveTemplate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter template name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={templateDescription}
+                  onChange={(e) => setTemplateDescription(e.target.value)}
+                  rows="4"
+                  className="w-full p-2 bg-white/50 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter template description"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-4">
+                <motion.button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg"
+                >
+                  Save Template
+                </motion.button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 };

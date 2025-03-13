@@ -29,6 +29,7 @@
     "react-konva": "^18.2.10",
     "react-pdf-highlighter": "^8.0.0-rc.0",
     "react-router-dom": "^7.1.5",
+    "tesseract.js": "^6.0.0",
     "uuid": "^11.0.5",
     "xlsx": "^0.18.5",
     "yup": "^1.6.1"
