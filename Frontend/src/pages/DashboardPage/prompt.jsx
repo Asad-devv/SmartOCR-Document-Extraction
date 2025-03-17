@@ -1,3 +1,4 @@
+// PROMPT.JSX
 import { useEffect } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from "xlsx";
@@ -19,10 +20,9 @@ async function processImageWithPrompt(imageFile, prompt) {
     },
   };
 
-  // Updated prompt to ensure single-row JSON objects
   const refinedPrompt = `
-    Extract the table data from the provided image into a JSON array. Each object in the array should represent a single row from the table, with keys matching the column headers exactly: 
-      "Tipo de Ordena tivo", "Suministro", "Medidor colocado","Estado","Medidor retirado","Estado", "Precintos de Tapa", "Precintos do Bomera", "ITEM", "Long. Cable (m)","Mono 55%" ,"Trif 83%","100%,"LIN","Cab", "KIT". Ensure that no row is split across multiple objects due to newlines or formatting issues. If a value is missing, use an empty string (""). Return the result as a JSON string.
+    Extract the table data from the provided image into a JSON array. Each object in the array should represent a single row from the table, with keys matching the column headers exactly:
+    . Ensure that no row is split across multiple objects due to newlines or formatting issues. If a value is missing, use an empty string (""). Return the result as a JSON string.
   ` + prompt;
 
   const textPart = { text: refinedPrompt };
@@ -71,7 +71,6 @@ export const RenderJson = ({ data, pdfId, allJsonResponses, setConsolidatedData 
     return <p className="text-red-500">Loading...</p>;
   }
 
-  // Aggregate data for consolidation
   useEffect(() => {
     setConsolidatedData((prev) => {
       const newData = { ...prev };
@@ -99,33 +98,63 @@ export const RenderJson = ({ data, pdfId, allJsonResponses, setConsolidatedData 
   );
 };
 
+
+
+// PROMPT.JSX
 export const exportConsolidatedDataToExcel = (allJsonResponses, pdfFiles) => {
   let consolidatedArray = [];
+  let columnHeaders = null;
+  let isFirstEntry = true;
 
-  Object.keys(allJsonResponses).forEach((pdfId, index) => {
-    const data = allJsonResponses[pdfId];
+  // Sort keys to ensure page order
+  const sortedKeys = Object.keys(allJsonResponses).sort((a, b) => {
+    const [pdfIdA, pageA] = a.split('_page_');
+    const [pdfIdB, pageB] = b.split('_page_');
+    if (pdfIdA === pdfIdB) return parseInt(pageA) - parseInt(pageB);
+    return pdfIdA.localeCompare(pdfIdB);
+  });
 
+  sortedKeys.forEach((pdfPageKey) => {
+    const data = allJsonResponses[pdfPageKey];
     let rows = [];
-    if (Array.isArray(data)) {
-      rows = data; // Use all objects in the array
-    } else if (typeof data === "object") {
-      rows = [data]; // Wrap single object in an array
-    } else if (typeof data === "string") {
-      rows = [{ Text: data }]; // Handle string case
-    } else {
-      console.error("Unexpected data format:", data);
+
+    // Clean and parse the JSON data
+    try {
+      const cleanedString = data
+        ?.replace(/```json/g, '')
+        ?.replace(/```/g, '')
+        ?.replace(/^json\s*/i, '')
+        ?.replace(/,\s*}/g, '}')
+        ?.replace(/,\s*\]/g, ']')
+        ?.trim();
+      rows = JSON.parse(cleanedString);
+      if (!Array.isArray(rows)) rows = [rows]; // Ensure it’s an array
+    } catch (error) {
+      console.error(`Error parsing JSON for ${pdfPageKey}:`, error, "Raw data:", data);
+      rows = [{ "Error": `Failed to parse data for ${pdfPageKey}` }];
+    }
+
+    if (rows.length === 0) {
+      console.warn(`No rows extracted for ${pdfPageKey}`);
       return;
     }
 
-    // Add each row without PDF Name, ensuring single-row integrity
-    rows.forEach((row) => {
-      consolidatedArray.push({ ...row });
-    });
-
-    // Add a blank row between PDFs (except after the last PDF)
-    if (index < Object.keys(allJsonResponses).length - 1) {
-      consolidatedArray.push({});
+    // Set headers from the first valid page
+    if (isFirstEntry && rows.length > 0) {
+      columnHeaders = Object.keys(rows[0]);
+      consolidatedArray.push(columnHeaders); // Add headers as first row
+      isFirstEntry = false;
     }
+
+    // Append rows, aligning with headers
+    rows.forEach((row) => {
+      if (columnHeaders) {
+        const rowValues = columnHeaders.map(header => row[header] !== undefined ? row[header] : "");
+        consolidatedArray.push(rowValues);
+      } else {
+        consolidatedArray.push(Object.values(row)); // Fallback if no headers yet
+      }
+    });
   });
 
   if (consolidatedArray.length === 0) {
@@ -133,11 +162,13 @@ export const exportConsolidatedDataToExcel = (allJsonResponses, pdfFiles) => {
     return;
   }
 
-  // Log the consolidated array for debugging
-  console.log("Consolidated Array:", consolidatedArray);
+  console.log("Consolidated Array for Excel:", consolidatedArray);
 
-  const worksheet = XLSX.utils.json_to_sheet(consolidatedArray);
+  const worksheet = XLSX.utils.aoa_to_sheet(consolidatedArray);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Consolidated Data");
-  XLSX.writeFile(workbook, "consolidated_extracted_data.xlsx");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Extracted Data");
+  XLSX.writeFile(workbook, "extracted_data.xlsx");
+
+  console.log("✅ Successfully exported extracted data to Excel.");
 };
+

@@ -1,3 +1,58 @@
+import * as pdfjsLib from 'pdfjs-dist';
+
+export const applyTemplateToAllPages = async (
+  templateId,
+  pdfFiles,
+  setPdfFiles,
+  uuidv4
+) => {
+  if (!pdfFiles.length || !templateId) return;
+
+  const response = await fetch("http://localhost:4000/api/template/apply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ templateId, pageNumber: 1 }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to apply template:", errorText);
+    return;
+  }
+
+  const data = await response.json();
+  const template = data.template || {};
+  const templateShapes = template.shapes || [];
+
+  const updatedPdfFiles = await Promise.all(
+    pdfFiles.map(async (pdf) => {
+      const pdfData = await pdf.file.arrayBuffer();
+      const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+      const pageCount = pdfDoc.numPages;
+
+      const allPageShapes = [];
+      for (let page = 0; page < pageCount; page++) {
+        const shapesForPage = templateShapes.map((shape) => ({
+          id: uuidv4(),
+          type: shape.type,
+          x: shape.coords.x,
+          y: shape.coords.y,
+          width: shape.coords.width,
+          height: shape.coords.height,
+          page: page,
+        }));
+        allPageShapes.push(...shapesForPage);
+      }
+      return {
+        ...pdf,
+        shapes: allPageShapes,
+      };
+    })
+  );
+
+  setPdfFiles(updatedPdfFiles);
+};
+
 export const refreshTemplates = async (setTemplates) => {
   const response = await fetch('http://localhost:4000/api/template/get');
   const data = await response.json();

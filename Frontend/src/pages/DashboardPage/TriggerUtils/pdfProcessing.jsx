@@ -1,8 +1,7 @@
 import processImageWithPrompt from '../prompt';
-
+import * as pdfjsLib from 'pdfjs-dist';
 export const processAllPdfs = async (
   pdfFiles,
-  currentPage,
   setIsProcessing,
   setPreviewImages,
   setJsonResponses,
@@ -19,39 +18,46 @@ export const processAllPdfs = async (
 
   try {
     for (const pdf of pdfFiles) {
-      const filteredShapes = (pdf.shapes || []).filter((shape) => shape.page === currentPage - 1);
-      if (!filteredShapes.length) {
-        console.warn(`No shapes defined for ${pdf.id} on page ${currentPage}`);
-        continue;
+      // Use the original file Blob to get page count
+      const pdfData = await pdf.file.arrayBuffer(); // Access the file directly
+      const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+      const pageCount = pdfDoc.numPages;
+
+      // Use the original file Blob for the backend
+      const pdfBlob = pdf.file; // Direct reference to the uploaded file
+
+      for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+        const filteredShapes = (pdf.shapes || []).filter((shape) => shape.page === pageNum - 1);
+        if (!filteredShapes.length) {
+          console.warn(`No shapes defined for ${pdf.id} on page ${pageNum}`);
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append("pdf", pdfBlob, `${pdf.id}.pdf`);
+        formData.append("pageNumber", pageNum);
+        formData.append("shapes", JSON.stringify(filteredShapes));
+
+        const processResponse = await fetch("http://localhost:4000/api/shape/process-page", {
+          method: "POST",
+          body: formData,
+        });
+        if (!processResponse.ok) {
+          const errorText = await processResponse.text();
+          console.error(`Failed to process ${pdf.id} page ${pageNum}:`, errorText);
+          continue;
+        }
+        const imageBlob = await processResponse.blob();
+        const imageUrl = URL.createObjectURL(imageBlob);
+        const pageKey = `${pdf.id}_page_${pageNum}`;
+        newPreviewImages.push({ pdfId: pdf.id, page: pageNum, url: imageUrl });
+
+        const res = await processImageWithPrompt(
+          imageBlob,
+          `Extract text from the red rectangles in **structured JSON format**.`
+        );
+        newJsonResponses[pageKey] = res;
       }
-
-      const response = await fetch(pdf.url);
-      const pdfBlob = await response.blob();
-
-      const formData = new FormData();
-      formData.append("pdf", pdfBlob, `${pdf.id}.pdf`);
-      formData.append("pageNumber", currentPage);
-      formData.append("shapes", JSON.stringify(filteredShapes));
-
-      const processResponse = await fetch("http://localhost:4000/api/shape/process-page", {
-        method: "POST",
-        body: formData,
-      });
-      if (!processResponse.ok) {
-        const errorText = await processResponse.text();
-        console.error(`Failed to process ${pdf.id}:`, errorText);
-        continue;
-      }
-      const imageBlob = await processResponse.blob();
-      const imageUrl = URL.createObjectURL(imageBlob);
-      newPreviewImages.push({ pdfId: pdf.id, url: imageUrl });
-
-      const res = await processImageWithPrompt(
-        imageBlob,
-        `Extract text from the red rectangles in **structured JSON format**.
-        `
-      );
-      newJsonResponses[pdf.id] = res;
     }
 
     setPreviewImages(newPreviewImages);
@@ -63,6 +69,12 @@ export const processAllPdfs = async (
     setIsProcessing(false);
   }
 };
+
+// No changes needed for handleClosePreview
+
+// No changes needed for handleClosePreview
+
+// No changes needed for handleClosePreview
 
 export const handleClosePreview = (previewImages, setIsPreviewModalOpen, setPreviewImages) => {
   previewImages.forEach((img) => URL.revokeObjectURL(img.url));

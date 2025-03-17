@@ -131,7 +131,7 @@ const Loadtemplate = () => {
         </motion.div>
       </motion.label>
 
-      <div className="flex space-x-4 mt-4 sticky top-0 z-10 bg-white p-4 rounded-lg shadow-md w-full">
+      <div className="flex flex-wrap gap-2  mt-4 sticky top-0 z-0 bg-white p-4 rounded-lg shadow-md w-full lg:w-[45%] md:w-[45%] ">
         <motion.button
           onClick={() => toggleDrawing(setIsDrawingEnabled)}
           className={`p-2 rounded flex items-center ${isDrawingEnabled ? 'bg-blue-700' : 'bg-blue-500'} text-white`}
