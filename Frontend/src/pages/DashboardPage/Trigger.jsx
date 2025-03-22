@@ -36,6 +36,7 @@ const Trigger = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [pdfScale, setPdfScale] = useState(1.0);
+  const [isApplyingToAll, setIsApplyingToAll] = useState(false);
   const [pdfDimensions, setPdfDimensions] = useState({
     width: 612,
     height: 792,
@@ -95,15 +96,31 @@ const Trigger = () => {
     }
   };
 
-  const handleApplyToAllPages = () => {
-    if (selectedTemplateId && pdfFiles.length > 0) {
-      applyTemplateToAllPages(
+  const handleApplyToAllPages = async () => {
+    if (isApplyingToAll || !selectedTemplateId || !pdfFiles.length) return;
+    setIsApplyingToAll(true);
+    try {
+      await applyTemplateToAllPages(
         selectedTemplateId,
         pdfFiles,
         setPdfFiles,
         uuidv4
       );
+    } catch (error) {
+      console.error("Error applying template to all pages:", error);
+    } finally {
+      setIsApplyingToAll(false);
     }
+  };
+  const handleProcessAllPdfs = async () => {
+    if (isProcessing || !pdfFiles.length) return;
+    await processAllPdfs(
+      pdfFiles,
+      setIsProcessing,
+      setPreviewImages,
+      setJsonResponses,
+      setIsPreviewModalOpen
+    );
   };
 
   return (
@@ -183,26 +200,42 @@ const Trigger = () => {
           className="bg-blue-500 text-white p-2 rounded flex items-center"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          disabled={!selectedTemplateId || !pdfFiles.length}
+          disabled={isApplyingToAll || !selectedTemplateId || !pdfFiles.length}
         >
-          <Shapes className="w-5 h-5 mr-2" /> Apply to All Pages
+          {isApplyingToAll ? (
+            <span className="flex items-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-4 h-4 border-2 border-t-white border-gray-200 rounded-full mr-2"
+              />
+              Applying...
+            </span>
+          ) : (
+            <>
+              <Shapes className="w-5 h-5 mr-2" /> Apply to All Pages
+            </>
+          )}
         </motion.button>
         <motion.button
-          onClick={() =>
-            processAllPdfs(
-              pdfFiles,
-              setIsProcessing,
-              setPreviewImages,
-              setJsonResponses,
-              setIsPreviewModalOpen
-            )
-          }
+          onClick={handleProcessAllPdfs}
           className="bg-purple-500 text-white p-2 rounded flex items-center"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           disabled={isProcessing}
         >
-          {isProcessing ? "Processing..." : "Process All PDFs"}
+          {isProcessing ? (
+            <span className="flex items-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-4 h-4 border-2 border-t-white border-gray-200 rounded-full mr-2"
+              />
+              Processing...
+            </span>
+          ) : (
+            "Process All PDFs"
+          )}
         </motion.button>
         <select
           value={currentPage}
@@ -218,7 +251,6 @@ const Trigger = () => {
           )}
         </select>
       </div>
-
       <div className="mt-6 grid grid-cols-4 gap-4">
         <div className="col-span-1">
           <h3 className="text-lg font-semibold mb-2">Uploaded PDFs</h3>
