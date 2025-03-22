@@ -1,17 +1,28 @@
 // TRIGGER.JSX
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Upload, Shapes } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
-import { useLocation } from 'react-router-dom';
-import { handleFileChange, handleDrop, handleDrag } from './TriggerUtils/fileHandling';
-import { processAllPdfs, handleClosePreview } from './TriggerUtils/pdfProcessing';
-import { renderBasePdf } from './TriggerUtils/pdfRendering';
-import { setupShapeDrawing } from './TriggerUtils/shapeDrawing';
-import { handlePageChange } from './TriggerUtils/pageControls';
-import { RenderJson, exportConsolidatedDataToExcel } from './prompt';
-import { refreshTemplates, applyTemplate, applyTemplateToAllPages } from './TriggerUtils/templateUtils';
-import { initializePdfjs } from './TriggerUtils/initializePdfjs';
+import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { Upload, Shapes } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
+import { useLocation } from "react-router-dom";
+import {
+  handleFileChange,
+  handleDrop,
+  handleDrag,
+} from "./TriggerUtils/fileHandling";
+import {
+  processAllPdfs,
+  handleClosePreview,
+} from "./TriggerUtils/pdfProcessing";
+import { renderBasePdf } from "./TriggerUtils/pdfRendering";
+import { setupShapeDrawing } from "./TriggerUtils/shapeDrawing";
+import { handlePageChange } from "./TriggerUtils/pageControls";
+import { RenderJson, exportConsolidatedDataToExcel } from "./prompt";
+import {
+  refreshTemplates,
+  applyTemplate,
+  applyTemplateToAllPages,
+} from "./TriggerUtils/templateUtils";
+import { initializePdfjs } from "./TriggerUtils/initializePdfjs";
 const Trigger = () => {
   const [dragActive, setDragActive] = useState(false);
   const [pdfFiles, setPdfFiles] = useState([]);
@@ -25,8 +36,11 @@ const Trigger = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [pdfScale, setPdfScale] = useState(1.0);
-  const [pdfDimensions, setPdfDimensions] = useState({ width: 612, height: 792 });
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [pdfDimensions, setPdfDimensions] = useState({
+    width: 612,
+    height: 792,
+  });
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const location = useLocation();
   const canvasRef = useRef(null);
   const baseCanvasRef = useRef(null);
@@ -43,7 +57,13 @@ const Trigger = () => {
     if (state?.selectedTemplateId) {
       setSelectedTemplateId(state.selectedTemplateId);
       if (pdfFiles.length > 0) {
-        applyTemplate(state.selectedTemplateId, pdfFiles, currentPage, setPdfFiles, uuidv4);
+        applyTemplate(
+          state.selectedTemplateId,
+          pdfFiles,
+          currentPage,
+          setPdfFiles,
+          uuidv4
+        );
       }
     }
   }, [location, pdfFiles]);
@@ -77,13 +97,22 @@ const Trigger = () => {
 
   const handleApplyToAllPages = () => {
     if (selectedTemplateId && pdfFiles.length > 0) {
-      applyTemplateToAllPages(selectedTemplateId, pdfFiles, setPdfFiles, uuidv4);
+      applyTemplateToAllPages(
+        selectedTemplateId,
+        pdfFiles,
+        setPdfFiles,
+        uuidv4
+      );
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto p-6 bg-gray-100">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative"
+      >
         <input
           type="file"
           multiple
@@ -105,12 +134,20 @@ const Trigger = () => {
         <motion.label
           htmlFor="file-upload"
           className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer
-            ${dragActive ? 'border-green-500 bg-green-50/30' : 'border-gray-300 bg-white/30'}
+            ${
+              dragActive
+                ? "border-green-500 bg-green-50/30"
+                : "border-gray-300 bg-white/30"
+            }
             backdrop-blur-md transition-all duration-300 hover:border-green-500 hover:bg-green-50/30`}
           onDragEnter={(e) => handleDrag(e, setDragActive)}
           onDragLeave={(e) => handleDrag(e, setDragActive)}
           onDragOver={(e) => handleDrag(e, setDragActive)}
-          onDrop={(e) => handleDrop(e, setDragActive, (e) => handleFileChange(e, setPdfFiles, setSelectedPdfId))}
+          onDrop={(e) =>
+            handleDrop(e, setDragActive, (e) =>
+              handleFileChange(e, setPdfFiles, setSelectedPdfId)
+            )
+          }
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
         >
@@ -121,15 +158,14 @@ const Trigger = () => {
             transition={{ delay: 0.2 }}
           >
             <Upload className="w-12 h-12 mb-4 text-green-500" />
-            <p className="text-lg text-gray-600">or drag and drop multiple PDFs here</p>
+            <p className="text-lg text-gray-600">
+              or drag and drop multiple PDFs here
+            </p>
           </motion.div>
         </motion.label>
       </motion.div>
 
-      <div
-  className="flex flex-wrap gap-2 mt-4 sticky top-0 z-0 bg-white p-4 rounded-lg shadow-md w-full lg:w-[65%] md:w-[65%]"
->
-
+      <div className="flex flex-wrap gap-2 mt-4 sticky top-0 z-0 bg-white p-4 rounded-lg shadow-md w-full lg:w-[65%] md:w-[65%]">
         <select
           value={selectedTemplateId}
           onChange={(e) => handleTemplateChange(e.target.value)}
@@ -143,39 +179,43 @@ const Trigger = () => {
           ))}
         </select>
         <motion.button
-  onClick={handleApplyToAllPages}
-  className="bg-blue-500 text-white p-2 rounded flex items-center"
-  whileHover={{ scale: 1.02 }}
-  whileTap={{ scale: 0.98 }}
-  disabled={!selectedTemplateId || !pdfFiles.length}
->
-  <Shapes className="w-5 h-5 mr-2" /> Apply to All Pages
-</motion.button>
+          onClick={handleApplyToAllPages}
+          className="bg-blue-500 text-white p-2 rounded flex items-center"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          disabled={!selectedTemplateId || !pdfFiles.length}
+        >
+          <Shapes className="w-5 h-5 mr-2" /> Apply to All Pages
+        </motion.button>
         <motion.button
-  onClick={() =>
-    processAllPdfs(
-      pdfFiles,
-      setIsProcessing,
-      setPreviewImages,
-      setJsonResponses,
-      setIsPreviewModalOpen
-    )
-  }
-  className="bg-purple-500 text-white p-2 rounded flex items-center"
-  whileHover={{ scale: 1.02 }}
-  whileTap={{ scale: 0.98 }}
-  disabled={isProcessing}
->
-  {isProcessing ? 'Processing...' : 'Process All PDFs'}
-</motion.button>
+          onClick={() =>
+            processAllPdfs(
+              pdfFiles,
+              setIsProcessing,
+              setPreviewImages,
+              setJsonResponses,
+              setIsPreviewModalOpen
+            )
+          }
+          className="bg-purple-500 text-white p-2 rounded flex items-center"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          disabled={isProcessing}
+        >
+          {isProcessing ? "Processing..." : "Process All PDFs"}
+        </motion.button>
         <select
           value={currentPage}
           onChange={(e) => handlePageChange(e, totalPages, setCurrentPage)}
           className="bg-green-500 text-white p-2 rounded border-none outline-none"
         >
-          {Array.from({ length: totalPages || 1 }, (_, i) => i + 1).map((page) => (
-            <option key={page} value={page}>Page {page}</option>
-          ))}
+          {Array.from({ length: totalPages || 1 }, (_, i) => i + 1).map(
+            (page) => (
+              <option key={page} value={page}>
+                Page {page}
+              </option>
+            )
+          )}
         </select>
       </div>
 
@@ -187,7 +227,9 @@ const Trigger = () => {
               <li
                 key={pdf.id}
                 onClick={() => setSelectedPdfId(pdf.id)}
-                className={`p-2 rounded cursor-pointer ${selectedPdfId === pdf.id ? 'bg-blue-100' : 'bg-white'} hover:bg-blue-50`}
+                className={`p-2 rounded cursor-pointer ${
+                  selectedPdfId === pdf.id ? "bg-blue-100" : "bg-white"
+                } hover:bg-blue-50`}
               >
                 {pdf.file.name}
               </li>
@@ -198,10 +240,13 @@ const Trigger = () => {
           {selectedPdfId && (
             <div className="relative p-4 rounded-lg">
               <div ref={pdfContainerRef} className="relative">
-                <canvas ref={baseCanvasRef} style={{ position: 'absolute', top: 0, left: 0 }} />
+                <canvas
+                  ref={baseCanvasRef}
+                  style={{ position: "absolute", top: 0, left: 0 }}
+                />
                 <canvas
                   ref={canvasRef}
-                  style={{ position: 'absolute', top: 0, left: 0 }}
+                  style={{ position: "absolute", top: 0, left: 0 }}
                 />
               </div>
             </div>
@@ -220,8 +265,12 @@ const Trigger = () => {
             animate={{ scale: 1, opacity: 1 }}
             className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-200/30"
           >
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Processing</h2>
-            <p className="text-gray-600">Please wait while we process your files...</p>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              Processing
+            </h2>
+            <p className="text-gray-600">
+              Please wait while we process your files...
+            </p>
             <div className="mt-4 flex justify-center">
               <motion.div
                 animate={{ rotate: 360 }}
@@ -244,14 +293,21 @@ const Trigger = () => {
             animate={{ scale: 1, opacity: 1 }}
             className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl mx-4 shadow-2xl border border-gray-200/30 overflow-y-auto max-h-[90vh]"
           >
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Preview Images</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              Preview Images
+            </h2>
             {previewImages.map((img) => (
               <div key={`${img.pdfId}_page_${img.page}`} className="mb-6">
                 <h3 className="text-lg font-medium">
-                  {pdfFiles.find((pdf) => pdf.id === img.pdfId)?.file.name} - Page {img.page}
+                  {pdfFiles.find((pdf) => pdf.id === img.pdfId)?.file.name} -
+                  Page {img.page}
                 </h3>
                 <div className="flex justify-between gap-4 items-start">
-                  <img src={img.url} alt={`Preview of ${img.pdfId} page ${img.page}`} className="rounded shadow max-w-full max-h-[50vh] object-contain" />
+                  <img
+                    src={img.url}
+                    alt={`Preview of ${img.pdfId} page ${img.page}`}
+                    className="rounded shadow max-w-full max-h-[50vh] object-contain"
+                  />
                   <RenderJson
                     data={jsonResponses[`${img.pdfId}_page_${img.page}`]}
                     pdfId={img.pdfId}
@@ -262,18 +318,24 @@ const Trigger = () => {
               </div>
             ))}
             <div className="flex justify-between mt-4">
-            <motion.button
-  onClick={() => {
-    console.log("JSON Responses before export:", jsonResponses);
-    exportConsolidatedDataToExcel(jsonResponses, pdfFiles);
-  }}
-  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-  disabled={!Object.keys(jsonResponses).length}
->
-  Download Excel
-</motion.button>
               <motion.button
-                onClick={() => handleClosePreview(previewImages, setIsPreviewModalOpen, setPreviewImages)}
+                onClick={() => {
+                  console.log("JSON Responses before export:", jsonResponses);
+                  exportConsolidatedDataToExcel(jsonResponses, pdfFiles);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                disabled={!Object.keys(jsonResponses).length}
+              >
+                Download Excel
+              </motion.button>
+              <motion.button
+                onClick={() =>
+                  handleClosePreview(
+                    previewImages,
+                    setIsPreviewModalOpen,
+                    setPreviewImages
+                  )
+                }
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
               >
                 Close

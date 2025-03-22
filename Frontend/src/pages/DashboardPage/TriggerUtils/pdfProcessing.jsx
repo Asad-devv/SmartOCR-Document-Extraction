@@ -1,5 +1,5 @@
-import processImageWithPrompt from '../prompt';
-import * as pdfjsLib from 'pdfjs-dist';
+import processImageWithPrompt from "../prompt";
+import * as pdfjsLib from "pdfjs-dist";
 export const processAllPdfs = async (
   pdfFiles,
   setIsProcessing,
@@ -27,7 +27,9 @@ export const processAllPdfs = async (
       const pdfBlob = pdf.file; // Direct reference to the uploaded file
 
       for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
-        const filteredShapes = (pdf.shapes || []).filter((shape) => shape.page === pageNum - 1);
+        const filteredShapes = (pdf.shapes || []).filter(
+          (shape) => shape.page === pageNum - 1
+        );
         if (!filteredShapes.length) {
           console.warn(`No shapes defined for ${pdf.id} on page ${pageNum}`);
           continue;
@@ -38,13 +40,19 @@ export const processAllPdfs = async (
         formData.append("pageNumber", pageNum);
         formData.append("shapes", JSON.stringify(filteredShapes));
 
-        const processResponse = await fetch("http://localhost:4000/api/shape/process-page", {
-          method: "POST",
-          body: formData,
-        });
+        const processResponse = await fetch(
+          "http://localhost:4000/api/shape/process-page",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
         if (!processResponse.ok) {
           const errorText = await processResponse.text();
-          console.error(`Failed to process ${pdf.id} page ${pageNum}:`, errorText);
+          console.error(
+            `Failed to process ${pdf.id} page ${pageNum}:`,
+            errorText
+          );
           continue;
         }
         const imageBlob = await processResponse.blob();
@@ -76,7 +84,11 @@ export const processAllPdfs = async (
 
 // No changes needed for handleClosePreview
 
-export const handleClosePreview = (previewImages, setIsPreviewModalOpen, setPreviewImages) => {
+export const handleClosePreview = (
+  previewImages,
+  setIsPreviewModalOpen,
+  setPreviewImages
+) => {
   previewImages.forEach((img) => URL.revokeObjectURL(img.url));
   setIsPreviewModalOpen(false);
   setPreviewImages([]);
