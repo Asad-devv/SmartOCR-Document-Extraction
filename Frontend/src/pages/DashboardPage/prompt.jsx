@@ -9,9 +9,8 @@ async function processImageWithPrompt(imageFile, prompt) {
     throw new Error("Both image and prompt are required.");
   }
 
-  const genAI = new GoogleGenerativeAI(
-    "AIzaSyAApY6krRmx34MGniuUMsTFIMMQEYJuMH8"
-  );
+  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const imageBase64 = await fileToBase64(imageFile);
@@ -25,20 +24,24 @@ async function processImageWithPrompt(imageFile, prompt) {
 
   const refinedPrompt =
     `
-    Extract the table data from the provided image into a JSON array.
-    Each object in the array should represent a single row from the table, with keys matching the column headers exactly.
-    The JSON should be in **strict format** without additional text:
-    
-    Example:
-    [{"Column1":"Value1", "Column2":"Value2"}, {"Column1":"Value3", "Column2":"Value4"}]
+CRITICAL INSTRUCTIONS FOR TABLE EXTRACTION:
+1. Extract ONLY valid JSON array of objects.
+2. Each object MUST have consistent key names.
+3. If no data found, return EXACTLY: []
+4. STRICT JSON FORMAT: No extra text, comments, or explanations.
+5. Keys must match table headers exactly.
+6. Always quote string values.
+7. **Every key must have a value. If a value is missing, set it as an empty string ("").**
+8. Do NOT leave standalone keys without values.
 
-    Ensure:
-    1. The structure is **valid JSON** with no text before or after.
-    2. No empty objects, always return structured key-value pairs.
-    3. The order of keys follows the **table structure** from left to right.
-    4. If a value is missing, use an empty string ("").
-    5. If no table is found, return **an empty array []**.
-  ` + prompt;
+EXAMPLE OUTPUT FORMAT:
+[
+  {"Column1": "Value1", "Column2": "Value2"},
+  {"Column1": "Value3", "Column2": ""}
+]
+
+Do NOT include any text before or after the JSON array.
+` + prompt;
 
   const textPart = { text: refinedPrompt };
 
@@ -66,7 +69,6 @@ function fileToBase64(file) {
 }
 
 export default processImageWithPrompt;
-
 export const RenderJson = ({
   data,
   pdfId,
@@ -76,49 +78,55 @@ export const RenderJson = ({
   let cleanedData;
 
   try {
+    // Remove duplicate keys and add missing values
     const cleanedString = data
       ?.replace(/```json/g, "")
       ?.replace(/```/g, "")
       ?.replace(/^json\s*/i, "")
-      ?.replace(/,\s*}/g, "}")
-      ?.replace(/,\s*\]/g, "]")
       ?.trim();
 
-    cleanedData = JSON.parse(cleanedString);
+    const rawData = JSON.parse(cleanedString);
 
-    if (!Array.isArray(cleanedData)) {
-      cleanedData = [cleanedData];
-    }
-
-    if (cleanedData.length === 0) {
-      throw new Error("Empty extraction");
-    }
-  } catch (error) {
-    console.error("Invalid JSON:", error);
-    cleanedData = [{ Error: "Failed to parse JSON, check extraction format" }];
-  }
-
-  useEffect(() => {
-    setConsolidatedData((prev) => {
-      const newData = { ...prev };
-      newData[pdfId] = cleanedData;
-      return newData;
+    // Remove duplicate keys and ensure all keys have a value
+    const cleanedData = rawData.map((item) => {
+      const uniqueItem = {};
+      Object.keys(item).forEach((key) => {
+        // If the value is undefined, set it to an empty string
+        uniqueItem[key] = item[key] !== undefined ? item[key] : "";
+      });
+      return uniqueItem;
     });
-  }, [data, pdfId, setConsolidatedData]);
 
-  return (
-    <div className="space-y-2 p-4 bg-white border rounded-lg shadow-md">
-      {Array.isArray(cleanedData) ? (
-        cleanedData.map((item, index) => (
+    useEffect(() => {
+      setConsolidatedData((prev) => {
+        const newData = { ...prev };
+        newData[pdfId] = cleanedData;
+        return newData;
+      });
+    }, [data, pdfId, setConsolidatedData]);
+
+    return (
+      <div className="space-y-2 p-4 bg-white border rounded-lg shadow-md">
+        {cleanedData.map((item, index) => (
           <p key={index} className="text-lg text-gray-900">
             {JSON.stringify(item)}
           </p>
-        ))
-      ) : (
-        <p className="text-lg font-medium text-gray-800">{cleanedData}</p>
-      )}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  } catch (error) {
+    console.error("Invalid JSON:", error);
+    console.error("Raw data:", data); // Log the raw data for debugging
+
+    return (
+      <div className="space-y-2 p-4 bg-red-100 border rounded-lg shadow-md">
+        <p className="text-lg text-red-900">
+          Failed to parse JSON: {error.message}
+        </p>
+        <pre className="text-sm text-gray-700 overflow-x-auto">{data}</pre>
+      </div>
+    );
+  }
 };
 
 export const exportConsolidatedDataToExcel = (allJsonResponses, pdfFiles) => {
@@ -142,11 +150,23 @@ export const exportConsolidatedDataToExcel = (allJsonResponses, pdfFiles) => {
         ?.replace(/```json/g, "")
         ?.replace(/```/g, "")
         ?.replace(/^json\s*/i, "")
-        ?.replace(/,\s*}/g, "}")
-        ?.replace(/,\s*\]/g, "]")
         ?.trim();
+
       rows = JSON.parse(cleanedString);
-      if (!Array.isArray(rows)) rows = [rows];
+
+      // Remove duplicate keys and ensure all keys have a value
+      rows = rows.map((item) => {
+        const uniqueItem = {};
+        Object.keys(item).forEach((key) => {
+          // If the value is undefined, set it to an empty string
+          uniqueItem[key] = item[key] !== undefined ? item[key] : "";
+        });
+        return uniqueItem;
+      });
+
+      if (!Array.isArray(rows)) {
+        rows = [rows];
+      }
     } catch (error) {
       console.error(
         `Error parsing JSON for ${pdfPageKey}:`,
@@ -186,5 +206,5 @@ export const exportConsolidatedDataToExcel = (allJsonResponses, pdfFiles) => {
   XLSX.utils.book_append_sheet(workbook, worksheet, "Extracted Data");
   XLSX.writeFile(workbook, "extracted_data.xlsx");
 
-  console.log(" Successfully exported extracted data to Excel.");
+  console.log("Successfully exported extracted data to Excel.");
 };

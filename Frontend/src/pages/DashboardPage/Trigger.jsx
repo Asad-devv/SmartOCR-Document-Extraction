@@ -325,31 +325,7 @@ const Trigger = () => {
             animate={{ scale: 1, opacity: 1 }}
             className="bg-white/90 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl mx-4 shadow-2xl border border-gray-200/30 overflow-y-auto max-h-[90vh]"
           >
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Preview Images
-            </h2>
-            {previewImages.map((img) => (
-              <div key={`${img.pdfId}_page_${img.page}`} className="mb-6">
-                <h3 className="text-lg font-medium">
-                  {pdfFiles.find((pdf) => pdf.id === img.pdfId)?.file.name} -
-                  Page {img.page}
-                </h3>
-                <div className="flex justify-between gap-4 items-start">
-                  <img
-                    src={img.url}
-                    alt={`Preview of ${img.pdfId} page ${img.page}`}
-                    className="rounded shadow max-w-full max-h-[50vh] object-contain"
-                  />
-                  <RenderJson
-                    data={jsonResponses[`${img.pdfId}_page_${img.page}`]}
-                    pdfId={img.pdfId}
-                    allJsonResponses={jsonResponses}
-                    setConsolidatedData={setConsolidatedData}
-                  />
-                </div>
-              </div>
-            ))}
-            <div className="flex justify-between mt-4">
+            <div className="flex justify-between mb-4">
               <motion.button
                 onClick={() => {
                   console.log("JSON Responses before export:", jsonResponses);
@@ -373,6 +349,31 @@ const Trigger = () => {
                 Close
               </motion.button>
             </div>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              Preview Images
+            </h2>
+
+            {previewImages.map((img) => (
+              <div key={`${img.pdfId}_page_${img.page}`} className="mb-6">
+                <h3 className="text-lg font-medium">
+                  {pdfFiles.find((pdf) => pdf.id === img.pdfId)?.file.name} -
+                  Page {img.page}
+                </h3>
+                <div className="flex justify-between gap-4 items-start">
+                  <img
+                    src={img.url}
+                    alt={`Preview of ${img.pdfId} page ${img.page}`}
+                    className="rounded shadow max-w-full max-h-[50vh] object-contain"
+                  />
+                  <RenderJson
+                    data={jsonResponses[`${img.pdfId}_page_${img.page}`]}
+                    pdfId={img.pdfId}
+                    allJsonResponses={jsonResponses}
+                    setConsolidatedData={setConsolidatedData}
+                  />
+                </div>
+              </div>
+            ))}
           </motion.div>
         </motion.div>
       )}

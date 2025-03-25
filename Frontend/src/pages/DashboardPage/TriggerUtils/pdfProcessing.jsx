@@ -18,13 +18,11 @@ export const processAllPdfs = async (
 
   try {
     for (const pdf of pdfFiles) {
-      // Use the original file Blob to get page count
-      const pdfData = await pdf.file.arrayBuffer(); // Access the file directly
+      const pdfData = await pdf.file.arrayBuffer();
       const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
       const pageCount = pdfDoc.numPages;
 
-      // Use the original file Blob for the backend
-      const pdfBlob = pdf.file; // Direct reference to the uploaded file
+      const pdfBlob = pdf.file;
 
       for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
         const filteredShapes = (pdf.shapes || []).filter(
@@ -77,12 +75,6 @@ export const processAllPdfs = async (
     setIsProcessing(false);
   }
 };
-
-// No changes needed for handleClosePreview
-
-// No changes needed for handleClosePreview
-
-// No changes needed for handleClosePreview
 
 export const handleClosePreview = (
   previewImages,
